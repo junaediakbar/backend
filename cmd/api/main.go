@@ -1,0 +1,105 @@
+package main
+
+import (
+	"context"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"laundry-backend/internal/config"
+	"laundry-backend/internal/db"
+	httpserver "laundry-backend/internal/http"
+	"laundry-backend/internal/http/handler"
+	"laundry-backend/internal/http/middleware"
+	"laundry-backend/internal/migrate"
+	"laundry-backend/internal/repository/pg"
+	"laundry-backend/internal/service"
+)
+
+func main() {
+	cfg := config.Load()
+	if cfg.HTTPAddr == "" {
+		cfg.HTTPAddr = ":8080"
+	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	pool, err := db.NewPool(ctx, db.PoolConfig{
+		DatabaseURL:     cfg.DatabaseURL,
+		MaxConns:        cfg.DBMaxConns,
+		MinConns:        cfg.DBMinConns,
+		MaxConnIdleTime: cfg.DBMaxConnIdleTime,
+		MaxConnLifetime: cfg.DBMaxConnLifetime,
+		HealthCheck:     cfg.DBHealthCheck,
+	})
+	if err != nil {
+		panic(err)
+	}
+	defer pool.Close()
+
+	if cfg.RunMigrations {
+		if err := migrate.Up(ctx, pool, cfg.MigrationsDir); err != nil {
+			panic(err)
+		}
+	}
+
+	dbpg := pg.New(pool)
+
+	customerRepo := pg.NewCustomerRepo(dbpg)
+	serviceTypeRepo := pg.NewServiceTypeRepo(dbpg)
+	employeeRepo := pg.NewEmployeeRepo(dbpg)
+	orderRepo := pg.NewOrderRepo(dbpg)
+	deliveryRepo := pg.NewDeliveryRepo(dbpg)
+	dashboardRepo := pg.NewDashboardRepo(dbpg)
+	reportRepo := pg.NewReportRepo(dbpg)
+	userRepo := pg.NewUserRepo(dbpg)
+
+	customerSvc := service.NewCustomerService(customerRepo)
+	serviceTypeSvc := service.NewServiceTypeService(serviceTypeRepo)
+	employeeSvc := service.NewEmployeeService(employeeRepo)
+	orderSvc := service.NewOrderService(orderRepo)
+	deliverySvc := service.NewDeliveryService(deliveryRepo)
+	dashboardSvc := service.NewDashboardService(dashboardRepo)
+	reportSvc := service.NewReportService(reportRepo)
+	userSvc := service.NewUserService(userRepo)
+	authSvc := service.NewAuthService(userRepo)
+
+	router := httpserver.NewRouter(httpserver.ServerDeps{
+		Auth: middleware.AuthConfig{
+			Mode:           cfg.AuthMode,
+			APIKey:         cfg.APIKey,
+			SupabaseJWKS:   cfg.SupabaseJWKSURL,
+			SupabaseIssuer: cfg.SupabaseIssuer,
+			JWTSecret:      cfg.JWTSecret,
+		},
+		Authn:        handler.NewAuthHandler(authSvc, cfg.JWTSecret),
+		Dashboard:    handler.NewDashboardHandler(dashboardSvc),
+		Customers:    handler.NewCustomerHandler(customerSvc),
+		Orders:       handler.NewOrderHandler(orderSvc),
+		ServiceTypes: handler.NewServiceTypeHandler(serviceTypeSvc),
+		Employees:    handler.NewEmployeeHandler(employeeSvc),
+		Delivery:     handler.NewDeliveryHandler(deliverySvc),
+		Reports:      handler.NewReportHandler(reportSvc),
+		Users:        handler.NewUserHandler(userSvc),
+	})
+
+	srv := &http.Server{
+		Addr:              cfg.HTTPAddr,
+		Handler:           router,
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+
+	go func() {
+		<-ctx.Done()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		_ = srv.Shutdown(shutdownCtx)
+	}()
+
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		panic(err)
+	}
+}
