@@ -15,7 +15,7 @@ type fakeOrderRepo struct {
 	createIn repository.CreateOrderParams
 }
 
-func (f *fakeOrderRepo) List(ctx context.Context, q string, page, pageSize int) (model.Paged[model.OrderListItem], error) {
+func (f *fakeOrderRepo) List(ctx context.Context, q string, page, pageSize int, sort string, dir string) (model.Paged[model.OrderListItem], error) {
 	return model.Paged[model.OrderListItem]{}, nil
 }
 func (f *fakeOrderRepo) GetDetail(ctx context.Context, id string) (*model.OrderDetail, error) {
@@ -24,6 +24,9 @@ func (f *fakeOrderRepo) GetDetail(ctx context.Context, id string) (*model.OrderD
 func (f *fakeOrderRepo) Create(ctx context.Context, p repository.CreateOrderParams) (*model.OrderDetail, error) {
 	f.createIn = p
 	return &model.OrderDetail{ID: "x"}, nil
+}
+func (f *fakeOrderRepo) UpdateImage(ctx context.Context, orderID string, image *string) error {
+	return nil
 }
 func (f *fakeOrderRepo) UpdateWorkflow(ctx context.Context, orderID string, workflowStatus string) error {
 	return nil

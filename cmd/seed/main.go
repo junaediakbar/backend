@@ -178,7 +178,7 @@ func seedServiceTypes(ctx context.Context, pool *pgxpool.Pool) error {
 		{name: "Karpet Bulu Tipis", unit: "m2", defaultPrice: "17000.00"},
 		{name: "Karpet Bulu Tebal", unit: "m2", defaultPrice: "20000.00"},
 		{name: "Ambal", unit: "m2", defaultPrice: "10000.00"},
-		{name: "Rumbai diputihkan/ dibersihkan", unit: "m", defaultPrice: "2000.00"},
+		{name: "Rumbai diputihkan/ dibersihkan", unit: "m1", defaultPrice: "2000.00"},
 	}
 
 	var inserted int
@@ -292,7 +292,10 @@ func seedOrders(ctx context.Context, pool *pgxpool.Pool, rng *rand.Rand, target 
 		return err
 	}
 	if existing >= target {
-		log.Printf("seed orders skipped existing=%d target=%d", existing, target)
+		if err := backfillDemoOrderDetails(ctx, pool, rng, target); err != nil {
+			return err
+		}
+		log.Printf("seed orders skipped existing=%d target=%d (backfill applied)", existing, target)
 		return nil
 	}
 
@@ -310,6 +313,11 @@ func seedOrders(ctx context.Context, pool *pgxpool.Pool, rng *rand.Rand, target 
 	}
 	if len(serviceTypes) == 0 {
 		return fmt.Errorf("no service types found")
+	}
+
+	employeeIDs, err := loadIDs(ctx, pool, `SELECT id FROM laundry_backend.employees WHERE is_active=true ORDER BY created_at ASC`)
+	if err != nil {
+		return err
 	}
 
 	toInsert := target - existing
@@ -345,6 +353,7 @@ func seedOrders(ctx context.Context, pool *pgxpool.Pool, rng *rand.Rand, target 
 				unitPrice:   fmt.Sprintf("%.2f", unitPrice),
 				discount:    fmt.Sprintf("%.2f", discount),
 				total:       fmt.Sprintf("%.2f", lineTotal),
+				totalValue:  lineTotal,
 			})
 			if sizeNote != "" {
 				noteParts = append(noteParts, fmt.Sprintf("%s: %s", st.name, sizeNote))
@@ -369,9 +378,13 @@ func seedOrders(ctx context.Context, pool *pgxpool.Pool, rng *rand.Rand, target 
 			note = &s
 		}
 
-		if err := insertOrderTx(ctx, pool, orderID, invoice, customerID, paymentStatus, workflow, receivedAt, total, note, items, paymentAmount); err != nil {
+		if err := insertOrderTx(ctx, pool, rng, employeeIDs, orderID, invoice, customerID, paymentStatus, workflow, receivedAt, total, note, items, paymentAmount); err != nil {
 			return err
 		}
+	}
+
+	if err := backfillDemoOrderDetails(ctx, pool, rng, target); err != nil {
+		return err
 	}
 
 	log.Printf("seed orders inserted=%d", toInsert)
@@ -385,11 +398,14 @@ type orderItemSeed struct {
 	unitPrice   string
 	discount    string
 	total       string
+	totalValue  float64
 }
 
 func insertOrderTx(
 	ctx context.Context,
 	pool *pgxpool.Pool,
+	rng *rand.Rand,
+	employeeIDs []string,
 	orderID, invoice, customerID, paymentStatus, workflowStatus string,
 	receivedAt time.Time,
 	total float64,
@@ -442,6 +458,20 @@ func insertOrderTx(
 		}
 	}
 
+	if len(employeeIDs) > 0 {
+		for _, it := range items {
+			if err := seedWorkAssignmentsTx(ctx, tx, rng, employeeIDs, orderID, it.id, it.totalValue, receivedAt); err != nil {
+				return err
+			}
+		}
+	}
+
+	if rng.Intn(100) < 35 {
+		if err := seedOrderAttachmentTx(ctx, tx, orderID, receivedAt); err != nil {
+			return err
+		}
+	}
+
 	if paymentAmount > 0 {
 		_, err := tx.Exec(ctx, `
 			INSERT INTO laundry_backend.payments (id, order_id, amount, method, paid_at, note, created_at)
@@ -453,6 +483,149 @@ func insertOrderTx(
 	}
 
 	return tx.Commit(ctx)
+}
+
+func backfillDemoOrderDetails(ctx context.Context, pool *pgxpool.Pool, rng *rand.Rand, limit int) error {
+	orderIDs, err := loadDemoOrderIDs(ctx, pool, limit)
+	if err != nil {
+		return err
+	}
+	if len(orderIDs) == 0 {
+		return nil
+	}
+
+	employeeIDs, err := loadIDs(ctx, pool, `SELECT id FROM laundry_backend.employees WHERE is_active=true ORDER BY created_at ASC`)
+	if err != nil {
+		return err
+	}
+
+	for _, orderID := range orderIDs {
+		if err := backfillDemoOrderDetail(ctx, pool, rng, employeeIDs, orderID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func backfillDemoOrderDetail(ctx context.Context, pool *pgxpool.Pool, rng *rand.Rand, employeeIDs []string, orderID string) error {
+	var waCount int
+	if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM laundry_backend.work_assignments WHERE order_id=$1`, orderID).Scan(&waCount); err != nil {
+		return err
+	}
+	var attCount int
+	if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM laundry_backend.order_attachments WHERE order_id=$1`, orderID).Scan(&attCount); err != nil {
+		return err
+	}
+
+	tx, err := pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var createdAt time.Time
+	if err := tx.QueryRow(ctx, `SELECT created_at FROM laundry_backend.orders WHERE id=$1`, orderID).Scan(&createdAt); err != nil {
+		return err
+	}
+
+	if waCount == 0 && len(employeeIDs) > 0 {
+		rows, err := tx.Query(ctx, `SELECT id, total::float8 FROM laundry_backend.order_items WHERE order_id=$1 ORDER BY created_at ASC`, orderID)
+		if err != nil {
+			return err
+		}
+		type itemRow struct {
+			id    string
+			total float64
+		}
+		items := []itemRow{}
+		for rows.Next() {
+			var it itemRow
+			if err := rows.Scan(&it.id, &it.total); err != nil {
+				rows.Close()
+				return err
+			}
+			items = append(items, it)
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return err
+		}
+		rows.Close()
+
+		for _, it := range items {
+			if err := seedWorkAssignmentsTx(ctx, tx, rng, employeeIDs, orderID, it.id, it.total, createdAt); err != nil {
+				return err
+			}
+		}
+	}
+
+	if attCount == 0 && rng.Intn(100) < 35 {
+		if err := seedOrderAttachmentTx(ctx, tx, orderID, createdAt); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit(ctx)
+}
+
+func loadDemoOrderIDs(ctx context.Context, pool *pgxpool.Pool, limit int) ([]string, error) {
+	rows, err := pool.Query(ctx, `
+		SELECT id
+		FROM laundry_backend.orders
+		WHERE invoice_number LIKE 'DEMO-%'
+		ORDER BY created_at DESC
+		LIMIT $1
+	`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := []string{}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out = append(out, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func seedWorkAssignmentsTx(ctx context.Context, tx pgx.Tx, rng *rand.Rand, employeeIDs []string, orderID, orderItemID string, itemTotal float64, createdAt time.Time) error {
+	type task struct {
+		taskType string
+		percent  float64
+	}
+	tasks := []task{
+		{taskType: "pickup", percent: 5},
+		{taskType: "finishing_packing", percent: 10},
+	}
+	for _, t := range tasks {
+		employeeID := employeeIDs[rng.Intn(len(employeeIDs))]
+		amount := round2(itemTotal * t.percent / 100)
+		_, err := tx.Exec(ctx, `
+			INSERT INTO laundry_backend.work_assignments (id, order_id, order_item_id, employee_id, task_type, percent, amount, created_at)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+			ON CONFLICT (order_item_id, task_type) DO NOTHING
+		`, cuid.New(), orderID, orderItemID, employeeID, t.taskType, fmt.Sprintf("%.2f", t.percent), fmt.Sprintf("%.2f", amount), createdAt)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func seedOrderAttachmentTx(ctx context.Context, tx pgx.Tx, orderID string, createdAt time.Time) error {
+	fileURL := fmt.Sprintf("https://picsum.photos/seed/%s/800/600", orderID)
+	_, err := tx.Exec(ctx, `
+		INSERT INTO laundry_backend.order_attachments (id, order_id, file_path, mime_type, size_bytes, created_at)
+		VALUES ($1,$2,$3,$4,$5,$6)
+	`, cuid.New(), orderID, fileURL, "image/jpeg", 0, createdAt)
+	return err
 }
 
 func loadIDs(ctx context.Context, pool *pgxpool.Pool, q string) ([]string, error) {
@@ -501,7 +674,7 @@ func randomQuantity(rng *rand.Rand, unit string) (float64, string) {
 		panjang := float64(rng.Intn(4)+1) + float64(rng.Intn(10))/10
 		lebar := float64(rng.Intn(3)+1) + float64(rng.Intn(10))/10
 		return round2(panjang * lebar), fmt.Sprintf("%.1fx%.1fm", panjang, lebar)
-	case "m":
+	case "m1":
 		q := float64(rng.Intn(10)+1) + float64(rng.Intn(10))/10
 		return round2(q), fmt.Sprintf("%.1fm", q)
 	default:

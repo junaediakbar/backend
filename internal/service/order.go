@@ -21,8 +21,8 @@ func NewOrderService(repo repository.OrderRepository) *OrderService {
 	return &OrderService{repo: repo}
 }
 
-func (s *OrderService) List(ctx context.Context, q string, page, pageSize int) (model.Paged[model.OrderListItem], error) {
-	return s.repo.List(ctx, q, page, pageSize)
+func (s *OrderService) List(ctx context.Context, q string, page, pageSize int, sort string, dir string) (model.Paged[model.OrderListItem], error) {
+	return s.repo.List(ctx, q, page, pageSize, sort, dir)
 }
 
 func (s *OrderService) GetDetail(ctx context.Context, id string) (*model.OrderDetail, error) {
@@ -47,6 +47,7 @@ type CreateOrderInput struct {
 	CustomerID    string
 	ReceivedDate  time.Time
 	CompletedDate *time.Time
+	Image         *string
 	Note          *string
 	Items         []CreateOrderItemInput
 }
@@ -89,9 +90,20 @@ func (s *OrderService) Create(ctx context.Context, in CreateOrderInput) (*model.
 		CustomerID:    in.CustomerID,
 		ReceivedDate:  in.ReceivedDate,
 		CompletedDate: in.CompletedDate,
+		Image:         in.Image,
 		Note:          in.Note,
 		Items:         items,
 	})
+}
+
+func (s *OrderService) UpdateImage(ctx context.Context, orderID string, image *string) error {
+	if err := s.repo.UpdateImage(ctx, orderID, image); err != nil {
+		if err == pgx.ErrNoRows {
+			return httpapi.NotFound("Nota tidak ditemukan")
+		}
+		return err
+	}
+	return nil
 }
 
 func (s *OrderService) UpdateWorkflow(ctx context.Context, orderID string, workflowStatus string) error {

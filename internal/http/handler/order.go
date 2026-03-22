@@ -1,7 +1,11 @@
 package handler
 
 import (
+	"encoding/json"
+	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -9,6 +13,7 @@ import (
 
 	"laundry-backend/internal/httpapi"
 	"laundry-backend/internal/service"
+	"laundry-backend/internal/util"
 )
 
 type OrderHandler struct {
@@ -24,7 +29,9 @@ func (h *OrderHandler) List() http.Handler {
 		q := strings.TrimSpace(r.URL.Query().Get("q"))
 		page := parseIntQuery(r, "page", 1)
 		pageSize := parseIntQuery(r, "pageSize", 20)
-		out, err := h.svc.List(r.Context(), q, page, pageSize)
+		sort := strings.TrimSpace(r.URL.Query().Get("sort"))
+		dir := strings.TrimSpace(r.URL.Query().Get("dir"))
+		out, err := h.svc.List(r.Context(), q, page, pageSize, sort, dir)
 		if err != nil {
 			return err
 		}
@@ -63,8 +70,44 @@ type createOrderItemBody struct {
 func (h *OrderHandler) Create() http.Handler {
 	return httpapi.HandlerFunc(func(w http.ResponseWriter, r *http.Request) error {
 		var body createOrderBody
-		if err := decodeJSON(r, &body); err != nil {
-			return err
+		var imageBytes []byte
+
+		ct := r.Header.Get("Content-Type")
+		if strings.HasPrefix(ct, "multipart/form-data") {
+			if err := r.ParseMultipartForm(25 << 20); err != nil {
+				return httpapi.BadRequest("invalid_multipart", "Form upload tidak valid", nil)
+			}
+
+			body.CustomerID = r.FormValue("customerId")
+			if v := strings.TrimSpace(r.FormValue("receivedDate")); v != "" {
+				body.ReceivedDate = &v
+			}
+			if v := strings.TrimSpace(r.FormValue("completedDate")); v != "" {
+				body.CompletedDate = &v
+			}
+			if v := strings.TrimSpace(r.FormValue("note")); v != "" {
+				body.Note = &v
+			}
+
+			itemsRaw := strings.TrimSpace(r.FormValue("items"))
+			if itemsRaw != "" {
+				if err := json.Unmarshal([]byte(itemsRaw), &body.Items); err != nil {
+					return httpapi.BadRequest("validation_error", "Items tidak valid", nil)
+				}
+			}
+
+			f, _, err := r.FormFile("image")
+			if err == nil && f != nil {
+				defer f.Close()
+				imageBytes, err = readLimited(f, 25<<20)
+				if err != nil {
+					return httpapi.BadRequest("validation_error", "File terlalu besar", nil)
+				}
+			}
+		} else {
+			if err := decodeJSON(r, &body); err != nil {
+				return err
+			}
 		}
 
 		receivedDate := time.Now()
@@ -102,9 +145,42 @@ func (h *OrderHandler) Create() http.Handler {
 			return err
 		}
 
+		if len(imageBytes) > 0 {
+			processed, err := util.ProcessImageToJPEGMaxBytes(imageBytes, 5<<20)
+			if err != nil {
+				return httpapi.BadRequest("validation_error", "Gagal memproses gambar", nil)
+			}
+
+			if err := os.MkdirAll(filepath.Join("uploads", "orders"), 0755); err != nil {
+				return err
+			}
+			rel := "/uploads/orders/" + out.ID + ".jpg"
+			full := filepath.Join("uploads", "orders", out.ID+".jpg")
+			if err := os.WriteFile(full, processed.Bytes, 0644); err != nil {
+				return err
+			}
+			if err := h.svc.UpdateImage(r.Context(), out.ID, &rel); err != nil {
+				_ = os.Remove(full)
+				return err
+			}
+			out.Image = &rel
+		}
+
 		httpapi.WriteOK(w, http.StatusCreated, out)
 		return nil
 	})
+}
+
+func readLimited(r io.Reader, max int64) ([]byte, error) {
+	lr := io.LimitReader(r, max+1)
+	b, err := io.ReadAll(lr)
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(b)) > max {
+		return nil, httpapi.BadRequest("validation_error", "File terlalu besar", nil)
+	}
+	return b, nil
 }
 
 type workflowBody struct {

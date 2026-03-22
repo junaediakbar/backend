@@ -23,7 +23,7 @@ func NewOrderRepo(db *DB) *OrderRepo {
 	return &OrderRepo{db: db}
 }
 
-func (r *OrderRepo) List(ctx context.Context, q string, page, pageSize int) (model.Paged[model.OrderListItem], error) {
+func (r *OrderRepo) List(ctx context.Context, q string, page, pageSize int, sort string, dir string) (model.Paged[model.OrderListItem], error) {
 	if page < 1 {
 		page = 1
 	}
@@ -38,9 +38,35 @@ func (r *OrderRepo) List(ctx context.Context, q string, page, pageSize int) (mod
 	where := "true"
 	args := []any{}
 	if strings.TrimSpace(q) != "" {
-		where = `(o.invoice_number ILIKE '%' || $1 || '%' OR c.name ILIKE '%' || $1 || '%')`
-		args = append(args, q)
+		where = `(
+			LOWER(o.invoice_number) LIKE '%' || LOWER($1) || '%'
+			OR LOWER(c.name) LIKE '%' || LOWER($1) || '%'
+			OR LOWER(COALESCE(c.phone, '')) LIKE '%' || LOWER($1) || '%'
+			OR LOWER(COALESCE(c.email, '')) LIKE '%' || LOWER($1) || '%'
+			OR LOWER(o.id) LIKE '%' || LOWER($1) || '%'
+		)`
+		args = append(args, strings.TrimSpace(q))
 	}
+
+	sortKey := strings.ToLower(strings.TrimSpace(sort))
+	dirKey := strings.ToLower(strings.TrimSpace(dir))
+	if dirKey != "asc" {
+		dirKey = "desc"
+	}
+	orderBy := "o.created_at"
+	switch sortKey {
+	case "created_at":
+		orderBy = "o.created_at"
+	case "received_date":
+		orderBy = "o.received_date"
+	case "total":
+		orderBy = "o.total"
+	case "invoice_number":
+		orderBy = "o.invoice_number"
+	case "customer_name":
+		orderBy = "c.name"
+	}
+	orderClause := fmt.Sprintf("%s %s", orderBy, dirKey)
 
 	var total int
 	if err := r.db.Pool.QueryRow(ctx, fmt.Sprintf(`
@@ -83,9 +109,9 @@ func (r *OrderRepo) List(ctx context.Context, q string, page, pageSize int) (mod
 			LIMIT 1
 		) fi ON true
 		WHERE %s
-		ORDER BY o.created_at DESC
+		ORDER BY %s
 		LIMIT $%d OFFSET $%d
-	`, where, len(args)+1, len(args)+2), argsList...)
+	`, where, orderClause, len(args)+1, len(args)+2), argsList...)
 	if err != nil {
 		return model.Paged[model.OrderListItem]{}, err
 	}
@@ -144,10 +170,10 @@ func (r *OrderRepo) GetDetail(ctx context.Context, id string) (*model.OrderDetai
 			o.received_date,
 			o.completed_date,
 			o.pickup_date,
+			o.image,
 			o.note,
 			o.created_at,
 			o.updated_at
-		FROM orders o
 		FROM laundry_backend.orders o
 		JOIN laundry_backend.customers c ON c.id = o.customer_id
 		WHERE o.id=$1
@@ -162,6 +188,7 @@ func (r *OrderRepo) GetDetail(ctx context.Context, id string) (*model.OrderDetai
 		&o.ReceivedDate,
 		&o.CompletedDate,
 		&o.PickupDate,
+		&o.Image,
 		&o.Note,
 		&o.CreatedAt,
 		&o.UpdatedAt,
@@ -361,11 +388,12 @@ func (r *OrderRepo) createOrderTx(ctx context.Context, tx pgx.Tx, orderID, invoi
 			received_date,
 			completed_date,
 			pickup_date,
+			image,
 			note,
 			created_at,
 			updated_at
-		) VALUES ($1,$2,$3,$4,'unpaid','received',$5,$6,NULL,$7,now(),now())
-	`, orderID, invoice, p.CustomerID, sumItemTotals(p.Items), p.ReceivedDate, p.CompletedDate, p.Note)
+		) VALUES ($1,$2,$3,$4,'unpaid','received',$5,$6,NULL,$7,$8,now(),now())
+	`, orderID, invoice, p.CustomerID, sumItemTotals(p.Items), p.ReceivedDate, p.CompletedDate, p.Image, p.Note)
 	if err != nil {
 		return err
 	}
@@ -390,6 +418,15 @@ func (r *OrderRepo) createOrderTx(ctx context.Context, tx pgx.Tx, orderID, invoi
 		}
 	}
 	return nil
+}
+
+func (r *OrderRepo) UpdateImage(ctx context.Context, orderID string, image *string) error {
+	_, err := r.db.Pool.Exec(ctx, `
+		UPDATE laundry_backend.orders
+		SET image=$2, updated_at=now()
+		WHERE id=$1
+	`, orderID, image)
+	return err
 }
 
 func (r *OrderRepo) UpdateWorkflow(ctx context.Context, orderID string, workflowStatus string) error {
