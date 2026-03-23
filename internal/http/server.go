@@ -15,15 +15,16 @@ import (
 type ServerDeps struct {
 	Auth middleware.AuthConfig
 
-	Authn        *handler.AuthHandler
-	Dashboard    *handler.DashboardHandler
-	Customers    *handler.CustomerHandler
-	Orders       *handler.OrderHandler
-	ServiceTypes *handler.ServiceTypeHandler
-	Employees    *handler.EmployeeHandler
-	Delivery     *handler.DeliveryHandler
-	Reports      *handler.ReportHandler
-	Users        *handler.UserHandler
+	Authn          *handler.AuthHandler
+	PublicReceipts *handler.PublicReceiptHandler
+	Dashboard      *handler.DashboardHandler
+	Customers      *handler.CustomerHandler
+	Orders         *handler.OrderHandler
+	ServiceTypes   *handler.ServiceTypeHandler
+	Employees      *handler.EmployeeHandler
+	Delivery       *handler.DeliveryHandler
+	Reports        *handler.ReportHandler
+	Users          *handler.UserHandler
 }
 
 func NewRouter(deps ServerDeps) http.Handler {
@@ -42,14 +43,22 @@ func NewRouter(deps ServerDeps) http.Handler {
 	jwksProvider := &middleware.JWKSProvider{}
 
 	r.Route("/api/v1", func(api chi.Router) {
-		api.Route("/auth", func(ar chi.Router) {
-			ar.Post("/login", deps.Authn.Login().ServeHTTP)
-
-			ar.Group(func(pr chi.Router) {
-				pr.Use(middleware.WithAuth(deps.Auth, jwksProvider))
-				pr.Get("/me", deps.Authn.Me().ServeHTTP)
+		if deps.PublicReceipts != nil {
+			api.Route("/public", func(pr chi.Router) {
+				pr.Get("/receipts/{token}", deps.PublicReceipts.Get().ServeHTTP)
 			})
-		})
+		}
+
+		if deps.Authn != nil {
+			api.Route("/auth", func(ar chi.Router) {
+				ar.Post("/login", deps.Authn.Login().ServeHTTP)
+
+				ar.Group(func(pr chi.Router) {
+					pr.Use(middleware.WithAuth(deps.Auth, jwksProvider))
+					pr.Get("/me", deps.Authn.Me().ServeHTTP)
+				})
+			})
+		}
 
 		api.Group(func(pr chi.Router) {
 			pr.Use(middleware.WithAuth(deps.Auth, jwksProvider))

@@ -61,6 +61,7 @@ type UpdateEmployeeParams = CreateEmployeeParams
 type OrderRepository interface {
 	List(ctx context.Context, q string, page, pageSize int, sort string, dir string) (model.Paged[model.OrderListItem], error)
 	GetDetail(ctx context.Context, id string) (*model.OrderDetail, error)
+	GetDetailByPublicToken(ctx context.Context, token string) (*model.OrderDetail, error)
 	Create(ctx context.Context, p CreateOrderParams) (*model.OrderDetail, error)
 	UpdateImage(ctx context.Context, orderID string, image *string) error
 	UpdateWorkflow(ctx context.Context, orderID string, workflowStatus string) error

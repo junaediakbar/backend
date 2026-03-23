@@ -84,6 +84,7 @@ func (r *OrderRepo) List(ctx context.Context, q string, page, pageSize int, sort
 		SELECT
 			o.id,
 			o.invoice_number,
+			o.public_token,
 			c.id,
 			c.name,
 			o.total::text,
@@ -125,6 +126,7 @@ func (r *OrderRepo) List(ctx context.Context, q string, page, pageSize int, sort
 		if err := rows.Scan(
 			&item.ID,
 			&item.InvoiceNumber,
+			&item.PublicToken,
 			&item.Customer.ID,
 			&item.Customer.Name,
 			&item.Total,
@@ -162,8 +164,10 @@ func (r *OrderRepo) GetDetail(ctx context.Context, id string) (*model.OrderDetai
 		SELECT
 			o.id,
 			o.invoice_number,
+			o.public_token,
 			c.id,
 			c.name,
+			c.phone,
 			o.total::text,
 			o.payment_status::text,
 			o.workflow_status::text,
@@ -180,8 +184,10 @@ func (r *OrderRepo) GetDetail(ctx context.Context, id string) (*model.OrderDetai
 	`, id).Scan(
 		&o.ID,
 		&o.InvoiceNumber,
+		&o.PublicToken,
 		&o.Customer.ID,
 		&o.Customer.Name,
+		&o.Customer.Phone,
 		&o.Total,
 		&o.PaymentStatus,
 		&o.WorkflowStatus,
@@ -339,6 +345,22 @@ func (r *OrderRepo) GetDetail(ctx context.Context, id string) (*model.OrderDetai
 	return &o, nil
 }
 
+func (r *OrderRepo) GetDetailByPublicToken(ctx context.Context, token string) (*model.OrderDetail, error) {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return nil, pgx.ErrNoRows
+	}
+	var id string
+	if err := r.db.Pool.QueryRow(ctx, `
+		SELECT id
+		FROM laundry_backend.orders
+		WHERE public_token=$1
+	`, token).Scan(&id); err != nil {
+		return nil, err
+	}
+	return r.GetDetail(ctx, id)
+}
+
 func (r *OrderRepo) Create(ctx context.Context, p repository.CreateOrderParams) (*model.OrderDetail, error) {
 	orderID := cuid.New()
 	now := time.Now()
@@ -381,6 +403,7 @@ func (r *OrderRepo) createOrderTx(ctx context.Context, tx pgx.Tx, orderID, invoi
 		INSERT INTO laundry_backend.orders (
 			id,
 			invoice_number,
+			public_token,
 			customer_id,
 			total,
 			payment_status,
@@ -392,8 +415,8 @@ func (r *OrderRepo) createOrderTx(ctx context.Context, tx pgx.Tx, orderID, invoi
 			note,
 			created_at,
 			updated_at
-		) VALUES ($1,$2,$3,$4,'unpaid','received',$5,$6,NULL,$7,$8,now(),now())
-	`, orderID, invoice, p.CustomerID, sumItemTotals(p.Items), p.ReceivedDate, p.CompletedDate, p.Image, p.Note)
+		) VALUES ($1,$2,$3,$4,$5,'unpaid','received',$6,$7,NULL,$8,$9,now(),now())
+	`, orderID, invoice, cuid.New(), p.CustomerID, sumItemTotals(p.Items), p.ReceivedDate, p.CompletedDate, p.Image, p.Note)
 	if err != nil {
 		return err
 	}

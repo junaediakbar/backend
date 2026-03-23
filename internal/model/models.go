@@ -43,6 +43,7 @@ type Employee struct {
 type OrderListItem struct {
 	ID            string `json:"id"`
 	InvoiceNumber string `json:"invoiceNumber"`
+	PublicToken   string `json:"publicToken"`
 	Customer      struct {
 		ID   string `json:"id"`
 		Name string `json:"name"`
@@ -63,9 +64,11 @@ type OrderListItem struct {
 type OrderDetail struct {
 	ID            string `json:"id"`
 	InvoiceNumber string `json:"invoiceNumber"`
+	PublicToken   string `json:"publicToken"`
 	Customer      struct {
-		ID   string `json:"id"`
-		Name string `json:"name"`
+		ID    string  `json:"id"`
+		Name  string  `json:"name"`
+		Phone *string `json:"phone,omitempty"`
 	} `json:"customer"`
 	Total          string     `json:"total"`
 	PaymentStatus  string     `json:"paymentStatus"`

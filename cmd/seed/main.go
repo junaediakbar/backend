@@ -423,6 +423,7 @@ func insertOrderTx(
 		INSERT INTO laundry_backend.orders (
 			id,
 			invoice_number,
+			public_token,
 			customer_id,
 			total,
 			payment_status,
@@ -433,8 +434,8 @@ func insertOrderTx(
 			note,
 			created_at,
 			updated_at
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,NULL,NULL,$8,$7,$7)
-	`, orderID, invoice, customerID, fmt.Sprintf("%.2f", total), paymentStatus, workflowStatus, receivedAt, note)
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NULL,NULL,$9,$8,$8)
+	`, orderID, invoice, cuid.New(), customerID, fmt.Sprintf("%.2f", total), paymentStatus, workflowStatus, receivedAt, note)
 	if err != nil {
 		return err
 	}

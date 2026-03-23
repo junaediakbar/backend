@@ -21,6 +21,9 @@ func (f *fakeOrderRepo) List(ctx context.Context, q string, page, pageSize int, 
 func (f *fakeOrderRepo) GetDetail(ctx context.Context, id string) (*model.OrderDetail, error) {
 	return nil, nil
 }
+func (f *fakeOrderRepo) GetDetailByPublicToken(ctx context.Context, token string) (*model.OrderDetail, error) {
+	return nil, nil
+}
 func (f *fakeOrderRepo) Create(ctx context.Context, p repository.CreateOrderParams) (*model.OrderDetail, error) {
 	f.createIn = p
 	return &model.OrderDetail{ID: "x"}, nil
