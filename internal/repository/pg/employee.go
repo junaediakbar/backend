@@ -126,7 +126,16 @@ func (r *EmployeeRepo) Performance(ctx context.Context, start, end *time.Time) (
 		totalCents  int64
 	}
 
-	pickupSet := map[string]bool{"pickup": true, "dropoff": true, "fuel_vehicle": true, "driver": true}
+	pickupSet := map[string]bool{
+		"pickup_fuel":      true,
+		"pickup_driver":    true,
+		"pickup_worker_1":  true,
+		"pickup_worker_2":  true,
+		"dropoff_fuel":     true,
+		"dropoff_driver":   true,
+		"dropoff_worker_1": true,
+		"dropoff_worker_2": true,
+	}
 	workSet := map[string]bool{"dust_removal": true, "brushing": true, "rinse_sprayer": true, "spin_dry": true, "finishing_packing": true}
 
 	byID := map[string]*agg{}

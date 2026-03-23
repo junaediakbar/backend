@@ -602,7 +602,7 @@ func seedWorkAssignmentsTx(ctx context.Context, tx pgx.Tx, rng *rand.Rand, emplo
 		percent  float64
 	}
 	tasks := []task{
-		{taskType: "pickup", percent: 5},
+		{taskType: "pickup_driver", percent: 2.5},
 		{taskType: "finishing_packing", percent: 10},
 	}
 	for _, t := range tasks {

@@ -319,7 +319,17 @@ func trimNotePtr(p *string) *string {
 
 func taskPercent(taskType string) (float64, bool) {
 	switch taskType {
-	case "pickup", "dropoff", "fuel_vehicle", "driver", "dust_removal", "brushing", "rinse_sprayer", "spin_dry":
+	case
+		"pickup_fuel",
+		"pickup_driver",
+		"pickup_worker_1",
+		"pickup_worker_2",
+		"dropoff_fuel",
+		"dropoff_driver",
+		"dropoff_worker_1",
+		"dropoff_worker_2":
+		return 2.5, true
+	case "dust_removal", "brushing", "rinse_sprayer", "spin_dry":
 		return 5, true
 	case "finishing_packing":
 		return 10, true

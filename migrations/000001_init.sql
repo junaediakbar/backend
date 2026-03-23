@@ -12,7 +12,7 @@ BEGIN
     CREATE TYPE "WorkflowStatus" AS ENUM ('received', 'washing', 'drying', 'ironing', 'finished', 'picked_up');
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'WorkTaskType') THEN
-    CREATE TYPE "WorkTaskType" AS ENUM ('pickup', 'dropoff', 'fuel_vehicle', 'driver', 'dust_removal', 'brushing', 'rinse_sprayer', 'spin_dry', 'finishing_packing');
+    CREATE TYPE "WorkTaskType" AS ENUM ('pickup_fuel', 'pickup_driver', 'pickup_worker_1', 'pickup_worker_2', 'dropoff_fuel', 'dropoff_driver', 'dropoff_worker_1', 'dropoff_worker_2', 'dust_removal', 'brushing', 'rinse_sprayer', 'spin_dry', 'finishing_packing');
   END IF;
 END $$;
 

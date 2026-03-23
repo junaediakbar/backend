@@ -35,7 +35,7 @@ BEGIN
     JOIN pg_namespace n ON n.oid = t.typnamespace
     WHERE t.typname = 'WorkTaskType' AND n.nspname = 'laundry_backend'
   ) THEN
-    CREATE TYPE laundry_backend."WorkTaskType" AS ENUM ('pickup', 'dropoff', 'fuel_vehicle', 'driver', 'dust_removal', 'brushing', 'rinse_sprayer', 'spin_dry', 'finishing_packing');
+    CREATE TYPE laundry_backend."WorkTaskType" AS ENUM ('pickup_fuel', 'pickup_driver', 'pickup_worker_1', 'pickup_worker_2', 'dropoff_fuel', 'dropoff_driver', 'dropoff_worker_1', 'dropoff_worker_2', 'dust_removal', 'brushing', 'rinse_sprayer', 'spin_dry', 'finishing_packing');
   END IF;
 END $$;
 
