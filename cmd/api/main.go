@@ -27,6 +27,11 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	// Avoid uploads/ piling up on ephemeral environments (e.g. Railway).
+	// New uploads should go to Cloudinary; this just keeps the container clean.
+	_ = os.RemoveAll("uploads")
+	_ = os.RemoveAll("./uploads")
+
 	pool, err := db.NewPool(ctx, db.PoolConfig{
 		DatabaseURL:     cfg.DatabaseURL,
 		MaxConns:        cfg.DBMaxConns,

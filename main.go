@@ -28,6 +28,10 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	// Avoid uploads/ piling up on ephemeral environments.
+	_ = os.RemoveAll("uploads")
+	_ = os.RemoveAll("./uploads")
+
 	log.Printf("starting server addr=%s", cfg.HTTPAddr)
 
 	pool, err := db.NewPool(ctx, db.PoolConfig{

@@ -38,7 +38,6 @@ func NewRouter(deps ServerDeps) http.Handler {
 	r.Get("/health", handler.Health().ServeHTTP)
 	r.Get("/openapi.json", handler.OpenAPIJSON().ServeHTTP)
 	r.Mount("/docs", v5emb.New("Laundry API", "/openapi.json", "/docs/"))
-	r.Handle("/uploads/*", http.StripPrefix("/uploads", http.FileServer(http.Dir("./uploads"))))
 
 	jwksProvider := &middleware.JWKSProvider{}
 

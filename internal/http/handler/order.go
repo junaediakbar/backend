@@ -3,9 +3,8 @@ package handler
 import (
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -151,24 +150,28 @@ func (h *OrderHandler) Create() http.Handler {
 				return httpapi.BadRequest("validation_error", "Gagal memproses gambar", nil)
 			}
 
-			if err := os.MkdirAll(filepath.Join("uploads", "orders"), 0755); err != nil {
+			imageURL, err := util.UploadOrderImageToCloudinary(r.Context(), out.ID, processed.Bytes)
+			if err != nil {
+				return httpapi.Internal("Gagal upload gambar")
+			}
+			log.Printf("order_image_set order_id=%s image_url_prefix=%s", out.ID, imageURLPrefix(imageURL))
+			if err := h.svc.UpdateImage(r.Context(), out.ID, &imageURL); err != nil {
 				return err
 			}
-			rel := "/uploads/orders/" + out.ID + ".jpg"
-			full := filepath.Join("uploads", "orders", out.ID+".jpg")
-			if err := os.WriteFile(full, processed.Bytes, 0644); err != nil {
-				return err
-			}
-			if err := h.svc.UpdateImage(r.Context(), out.ID, &rel); err != nil {
-				_ = os.Remove(full)
-				return err
-			}
-			out.Image = &rel
+			out.Image = &imageURL
 		}
 
 		httpapi.WriteOK(w, http.StatusCreated, out)
 		return nil
 	})
+}
+
+func imageURLPrefix(s string) string {
+	s = strings.TrimSpace(s)
+	if len(s) <= 60 {
+		return s
+	}
+	return s[:60]
 }
 
 func readLimited(r io.Reader, max int64) ([]byte, error) {
