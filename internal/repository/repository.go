@@ -162,6 +162,9 @@ type CreatePlanParams struct {
 	StartAddress *string
 	StartLat     float64
 	StartLng     float64
+	EndAddress   *string
+	EndLat       float64
+	EndLng       float64
 	Stops        []CreateStopParams
 }
 

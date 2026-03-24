@@ -164,6 +164,9 @@ CREATE TABLE IF NOT EXISTS laundry_backend.delivery_plans (
   start_address TEXT,
   start_lat DECIMAL(9,6),
   start_lng DECIMAL(9,6),
+  end_address TEXT,
+  end_lat DECIMAL(9,6),
+  end_lng DECIMAL(9,6),
   created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

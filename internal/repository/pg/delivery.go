@@ -64,6 +64,8 @@ func (r *DeliveryRepo) GetPlan(ctx context.Context, id string) (*model.DeliveryP
 	var p model.DeliveryPlanDetail
 	var startLat *float64
 	var startLng *float64
+	var endLat *float64
+	var endLng *float64
 	err := r.db.Pool.QueryRow(ctx, `
 		SELECT
 			id,
@@ -72,16 +74,21 @@ func (r *DeliveryRepo) GetPlan(ctx context.Context, id string) (*model.DeliveryP
 			start_address,
 			start_lat::float8,
 			start_lng::float8,
+			end_address,
+			end_lat::float8,
+			end_lng::float8,
 			created_at,
 			updated_at
 		FROM laundry_backend.delivery_plans
 		WHERE id=$1
-	`, id).Scan(&p.ID, &p.Name, &p.PlannedDate, &p.StartAddress, &startLat, &startLng, &p.CreatedAt, &p.UpdatedAt)
+	`, id).Scan(&p.ID, &p.Name, &p.PlannedDate, &p.StartAddress, &startLat, &startLng, &p.EndAddress, &endLat, &endLng, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
 	p.StartLat = startLat
 	p.StartLng = startLng
+	p.EndLat = endLat
+	p.EndLng = endLng
 
 	rows, err := r.db.Pool.Query(ctx, `
 		SELECT
@@ -160,10 +167,13 @@ func (r *DeliveryRepo) CreatePlan(ctx context.Context, p repository.CreatePlanPa
 			start_address,
 			start_lat,
 			start_lng,
+			end_address,
+			end_lat,
+			end_lng,
 			created_at,
 			updated_at
-		) VALUES ($1,$2,$3,$4,$5,$6,now(),now())
-	`, planID, p.Name, p.PlannedDate, p.StartAddress, p.StartLat, p.StartLng)
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,now(),now())
+	`, planID, p.Name, p.PlannedDate, p.StartAddress, p.StartLat, p.StartLng, p.EndAddress, p.EndLat, p.EndLng)
 	if err != nil {
 		return nil, err
 	}

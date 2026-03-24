@@ -50,6 +50,9 @@ type createPlanBody struct {
 	StartAddress *string `json:"startAddress"`
 	StartLat     float64 `json:"startLat"`
 	StartLng     float64 `json:"startLng"`
+	EndAddress   *string `json:"endAddress"`
+	EndLat       float64 `json:"endLat"`
+	EndLng       float64 `json:"endLng"`
 	Stops        []struct {
 		CustomerID string  `json:"customerId"`
 		Sequence   int     `json:"sequence"`
@@ -88,6 +91,9 @@ func (h *DeliveryHandler) CreatePlan() http.Handler {
 			StartAddress: trimNotePtr(body.StartAddress),
 			StartLat:     body.StartLat,
 			StartLng:     body.StartLng,
+			EndAddress:   trimNotePtr(body.EndAddress),
+			EndLat:       body.EndLat,
+			EndLng:       body.EndLng,
 			Stops:        stops,
 		})
 		if err != nil {

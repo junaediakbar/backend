@@ -149,6 +149,9 @@ type DeliveryPlanDetail struct {
 	StartAddress *string   `json:"startAddress,omitempty"`
 	StartLat     *float64  `json:"startLat,omitempty"`
 	StartLng     *float64  `json:"startLng,omitempty"`
+	EndAddress   *string   `json:"endAddress,omitempty"`
+	EndLat       *float64  `json:"endLat,omitempty"`
+	EndLng       *float64  `json:"endLng,omitempty"`
 	CreatedAt    time.Time `json:"createdAt"`
 	UpdatedAt    time.Time `json:"updatedAt"`
 

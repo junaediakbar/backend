@@ -42,6 +42,9 @@ type CreatePlanInput struct {
 	StartAddress *string
 	StartLat     float64
 	StartLng     float64
+	EndAddress   *string
+	EndLat       float64
+	EndLng       float64
 	Stops        []repository.CreateStopParams
 }
 
@@ -81,6 +84,9 @@ func (s *DeliveryService) CreatePlan(ctx context.Context, in CreatePlanInput) (*
 		StartAddress: in.StartAddress,
 		StartLat:     in.StartLat,
 		StartLng:     in.StartLng,
+		EndAddress:   in.EndAddress,
+		EndLat:       in.EndLat,
+		EndLng:       in.EndLng,
 		Stops:        stops,
 	})
 }
