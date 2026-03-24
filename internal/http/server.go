@@ -67,6 +67,8 @@ func NewRouter(deps ServerDeps) http.Handler {
 			pr.Route("/customers", func(cr chi.Router) {
 				cr.Get("/", deps.Customers.List().ServeHTTP)
 				cr.Post("/", deps.Customers.Create().ServeHTTP)
+				cr.Delete("/{id}", deps.Customers.Delete().ServeHTTP)
+				cr.Delete("/{id}/", deps.Customers.Delete().ServeHTTP)
 				cr.Route("/{id}", func(ir chi.Router) {
 					ir.Get("/", deps.Customers.Get().ServeHTTP)
 					ir.Get("/orders", deps.Customers.RecentOrders().ServeHTTP)
@@ -114,6 +116,7 @@ func NewRouter(deps ServerDeps) http.Handler {
 				dr.Post("/", deps.Delivery.CreatePlan().ServeHTTP)
 				dr.Get("/{id}", deps.Delivery.GetPlan().ServeHTTP)
 				dr.Delete("/{id}", deps.Delivery.DeletePlan().ServeHTTP)
+				dr.Delete("/{id}/", deps.Delivery.DeletePlan().ServeHTTP)
 			})
 
 			pr.Get("/reports/orders.csv", deps.Reports.OrdersCSV().ServeHTTP)
