@@ -64,3 +64,14 @@ func (s *ServiceTypeService) Update(ctx context.Context, id string, p repository
 	}
 	return out, nil
 }
+
+func (s *ServiceTypeService) Delete(ctx context.Context, id string) error {
+	err := s.repo.Delete(ctx, strings.TrimSpace(id))
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return httpapi.NotFound("Tipe layanan tidak ditemukan")
+		}
+		return err
+	}
+	return nil
+}

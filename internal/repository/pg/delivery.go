@@ -186,4 +186,15 @@ func (r *DeliveryRepo) CreatePlan(ctx context.Context, p repository.CreatePlanPa
 	return r.GetPlan(ctx, planID)
 }
 
+func (r *DeliveryRepo) DeletePlan(ctx context.Context, id string) error {
+	ct, err := r.db.Pool.Exec(ctx, `DELETE FROM laundry_backend.delivery_plans WHERE id=$1`, id)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
+}
+
 var _ repository.DeliveryRepository = (*DeliveryRepo)(nil)

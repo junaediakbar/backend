@@ -97,3 +97,14 @@ func (h *DeliveryHandler) CreatePlan() http.Handler {
 		return nil
 	})
 }
+
+func (h *DeliveryHandler) DeletePlan() http.Handler {
+	return httpapi.HandlerFunc(func(w http.ResponseWriter, r *http.Request) error {
+		id := chi.URLParam(r, "id")
+		if err := h.svc.DeletePlan(r.Context(), id); err != nil {
+			return err
+		}
+		httpapi.WriteOK(w, http.StatusOK, map[string]bool{"ok": true})
+		return nil
+	})
+}

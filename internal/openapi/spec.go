@@ -56,6 +56,8 @@ func JSON() ([]byte, error) {
 			pi.Put = op
 		case "PATCH":
 			pi.Patch = op
+		case "DELETE":
+			pi.Delete = op
 		}
 	}
 
@@ -68,22 +70,26 @@ func JSON() ([]byte, error) {
 	add("POST", "/api/v1/customers", "Create customer", true)
 	add("GET", "/api/v1/customers/{id}", "Get customer", true)
 	add("PUT", "/api/v1/customers/{id}", "Update customer", true)
+	add("DELETE", "/api/v1/customers/{id}", "Delete customer", true)
 	add("GET", "/api/v1/customers/{id}/orders", "List recent customer orders", true)
 
 	add("GET", "/api/v1/service-types", "List service types", true)
 	add("POST", "/api/v1/service-types", "Create service type", true)
 	add("GET", "/api/v1/service-types/{id}", "Get service type", true)
 	add("PUT", "/api/v1/service-types/{id}", "Update service type", true)
+	add("DELETE", "/api/v1/service-types/{id}", "Delete service type", true)
 
 	add("GET", "/api/v1/employees", "List employees", true)
 	add("GET", "/api/v1/employees/performance", "Employee performance", true)
 	add("POST", "/api/v1/employees", "Create employee", true)
 	add("GET", "/api/v1/employees/{id}", "Get employee", true)
 	add("PUT", "/api/v1/employees/{id}", "Update employee", true)
+	add("DELETE", "/api/v1/employees/{id}", "Delete employee", true)
 
 	add("GET", "/api/v1/orders", "List orders", true)
 	add("POST", "/api/v1/orders", "Create order", true)
 	add("GET", "/api/v1/orders/{id}", "Get order detail", true)
+	add("DELETE", "/api/v1/orders/{id}", "Delete order", true)
 	add("PATCH", "/api/v1/orders/{id}/workflow", "Update workflow", true)
 	add("POST", "/api/v1/orders/{id}/payments", "Create payment", true)
 	add("POST", "/api/v1/orders/{id}/attachments", "Create attachments", true)
@@ -92,8 +98,14 @@ func JSON() ([]byte, error) {
 	add("GET", "/api/v1/delivery-plans", "List delivery plans", true)
 	add("POST", "/api/v1/delivery-plans", "Create delivery plan", true)
 	add("GET", "/api/v1/delivery-plans/{id}", "Get delivery plan", true)
+	add("DELETE", "/api/v1/delivery-plans/{id}", "Delete delivery plan", true)
 
 	add("GET", "/api/v1/reports/orders.csv", "Export orders CSV", true)
+	add("GET", "/api/v1/users", "List users", true)
+	add("POST", "/api/v1/users", "Create user", true)
+	add("GET", "/api/v1/users/{id}", "Get user", true)
+	add("PUT", "/api/v1/users/{id}", "Update user", true)
+	add("DELETE", "/api/v1/users/{id}", "Delete user", true)
 
 	return json.MarshalIndent(spec, "", "  ")
 }

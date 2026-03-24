@@ -6,6 +6,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/lucsky/cuid"
 
 	"laundry-backend/internal/model"
@@ -92,6 +93,17 @@ func (r *EmployeeRepo) Update(ctx context.Context, id string, p repository.Updat
 		return nil, err
 	}
 	return &e, nil
+}
+
+func (r *EmployeeRepo) Delete(ctx context.Context, id string) error {
+	ct, err := r.db.Pool.Exec(ctx, `DELETE FROM laundry_backend.employees WHERE id=$1`, id)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
 }
 
 func (r *EmployeeRepo) Performance(ctx context.Context, start, end *time.Time) ([]model.EmployeePerformanceRow, error) {

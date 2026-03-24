@@ -84,3 +84,14 @@ func (s *DeliveryService) CreatePlan(ctx context.Context, in CreatePlanInput) (*
 		Stops:        stops,
 	})
 }
+
+func (s *DeliveryService) DeletePlan(ctx context.Context, id string) error {
+	err := s.repo.DeletePlan(ctx, strings.TrimSpace(id))
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return httpapi.NotFound("Rencana tidak ditemukan")
+		}
+		return err
+	}
+	return nil
+}

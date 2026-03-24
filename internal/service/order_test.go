@@ -46,6 +46,9 @@ func (f *fakeOrderRepo) DeleteWorkAssignment(ctx context.Context, orderItemID st
 func (f *fakeOrderRepo) CreateAttachments(ctx context.Context, orderID string, files []repository.CreateAttachmentParams) error {
 	return nil
 }
+func (f *fakeOrderRepo) Delete(ctx context.Context, id string) error {
+	return nil
+}
 
 func TestOrderServiceCreate_ComputesTotals(t *testing.T) {
 	repo := &fakeOrderRepo{}

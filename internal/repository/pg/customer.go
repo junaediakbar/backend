@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/lucsky/cuid"
 
 	"laundry-backend/internal/model"
@@ -217,6 +218,31 @@ func (r *CustomerRepo) Update(ctx context.Context, id string, p repository.Updat
 	c.Latitude = lat
 	c.Longitude = lng
 	return &c, nil
+}
+
+func (r *CustomerRepo) Delete(ctx context.Context, id string) error {
+	var orderCount int
+	if err := r.db.Pool.QueryRow(ctx, `SELECT COUNT(*)::int FROM laundry_backend.orders WHERE customer_id=$1`, id).Scan(&orderCount); err != nil {
+		return err
+	}
+	if orderCount > 0 {
+		return repository.ErrCustomerHasOrders
+	}
+	var stopCount int
+	if err := r.db.Pool.QueryRow(ctx, `SELECT COUNT(*)::int FROM laundry_backend.delivery_stops WHERE customer_id=$1`, id).Scan(&stopCount); err != nil {
+		return err
+	}
+	if stopCount > 0 {
+		return repository.ErrCustomerHasDeliveryStops
+	}
+	ct, err := r.db.Pool.Exec(ctx, `DELETE FROM laundry_backend.customers WHERE id=$1`, id)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
 }
 
 var _ repository.CustomerRepository = (*CustomerRepo)(nil)

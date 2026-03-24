@@ -58,6 +58,17 @@ func (s *EmployeeService) Update(ctx context.Context, id string, p repository.Up
 	return out, nil
 }
 
+func (s *EmployeeService) Delete(ctx context.Context, id string) error {
+	err := s.repo.Delete(ctx, strings.TrimSpace(id))
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return httpapi.NotFound("Karyawan tidak ditemukan")
+		}
+		return err
+	}
+	return nil
+}
+
 func (s *EmployeeService) Performance(ctx context.Context, start, end *time.Time) ([]model.EmployeePerformanceRow, error) {
 	return s.repo.Performance(ctx, start, end)
 }

@@ -51,6 +51,17 @@ func (h *OrderHandler) Get() http.Handler {
 	})
 }
 
+func (h *OrderHandler) Delete() http.Handler {
+	return httpapi.HandlerFunc(func(w http.ResponseWriter, r *http.Request) error {
+		id := chi.URLParam(r, "id")
+		if err := h.svc.Delete(r.Context(), id); err != nil {
+			return err
+		}
+		httpapi.WriteOK(w, http.StatusOK, map[string]bool{"ok": true})
+		return nil
+	})
+}
+
 type createOrderBody struct {
 	CustomerID    string                `json:"customerId"`
 	ReceivedDate  *string               `json:"receivedDate"`

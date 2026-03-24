@@ -2,9 +2,15 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"laundry-backend/internal/model"
+)
+
+var (
+	ErrCustomerHasOrders         = errors.New("customer has orders")
+	ErrCustomerHasDeliveryStops  = errors.New("customer has delivery stops")
 )
 
 type CustomerRepository interface {
@@ -13,6 +19,7 @@ type CustomerRepository interface {
 	RecentOrders(ctx context.Context, customerID string, limit int) ([]model.CustomerOrderSummary, error)
 	Create(ctx context.Context, c CreateCustomerParams) (*model.Customer, error)
 	Update(ctx context.Context, id string, c UpdateCustomerParams) (*model.Customer, error)
+	Delete(ctx context.Context, id string) error
 }
 
 type CreateCustomerParams struct {
@@ -32,6 +39,7 @@ type ServiceTypeRepository interface {
 	Get(ctx context.Context, id string) (*model.ServiceType, error)
 	Create(ctx context.Context, p CreateServiceTypeParams) (*model.ServiceType, error)
 	Update(ctx context.Context, id string, p UpdateServiceTypeParams) (*model.ServiceType, error)
+	Delete(ctx context.Context, id string) error
 }
 
 type CreateServiceTypeParams struct {
@@ -48,6 +56,7 @@ type EmployeeRepository interface {
 	Get(ctx context.Context, id string) (*model.Employee, error)
 	Create(ctx context.Context, p CreateEmployeeParams) (*model.Employee, error)
 	Update(ctx context.Context, id string, p UpdateEmployeeParams) (*model.Employee, error)
+	Delete(ctx context.Context, id string) error
 	Performance(ctx context.Context, start, end *time.Time) ([]model.EmployeePerformanceRow, error)
 }
 
@@ -63,6 +72,7 @@ type OrderRepository interface {
 	GetDetail(ctx context.Context, id string) (*model.OrderDetail, error)
 	GetDetailByPublicToken(ctx context.Context, token string) (*model.OrderDetail, error)
 	Create(ctx context.Context, p CreateOrderParams) (*model.OrderDetail, error)
+	Delete(ctx context.Context, id string) error
 	UpdateImage(ctx context.Context, orderID string, image *string) error
 	UpdateWorkflow(ctx context.Context, orderID string, workflowStatus string) error
 	CreatePayment(ctx context.Context, orderID string, p CreatePaymentParams) (*model.Payment, error)
@@ -113,6 +123,7 @@ type DeliveryRepository interface {
 	ListPlans(ctx context.Context, limit int) ([]model.DeliveryPlanListItem, error)
 	GetPlan(ctx context.Context, id string) (*model.DeliveryPlanDetail, error)
 	CreatePlan(ctx context.Context, p CreatePlanParams) (*model.DeliveryPlanDetail, error)
+	DeletePlan(ctx context.Context, id string) error
 }
 
 type UserRepository interface {

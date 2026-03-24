@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/lucsky/cuid"
 
 	"laundry-backend/internal/model"
@@ -90,6 +91,17 @@ func (r *ServiceTypeRepo) Update(ctx context.Context, id string, p repository.Up
 		return nil, err
 	}
 	return &s, nil
+}
+
+func (r *ServiceTypeRepo) Delete(ctx context.Context, id string) error {
+	ct, err := r.db.Pool.Exec(ctx, `DELETE FROM laundry_backend.service_types WHERE id=$1`, id)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
 }
 
 var _ repository.ServiceTypeRepository = (*ServiceTypeRepo)(nil)

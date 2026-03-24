@@ -583,6 +583,17 @@ func (r *OrderRepo) CreateAttachments(ctx context.Context, orderID string, files
 	return nil
 }
 
+func (r *OrderRepo) Delete(ctx context.Context, id string) error {
+	ct, err := r.db.Pool.Exec(ctx, `DELETE FROM laundry_backend.orders WHERE id=$1`, id)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
+}
+
 func sumItemTotals(items []repository.CreateOrderItemParams) string {
 	var cents int64
 	for _, it := range items {

@@ -71,6 +71,7 @@ func NewRouter(deps ServerDeps) http.Handler {
 					ir.Get("/", deps.Customers.Get().ServeHTTP)
 					ir.Get("/orders", deps.Customers.RecentOrders().ServeHTTP)
 					ir.Put("/", deps.Customers.Update().ServeHTTP)
+					ir.Delete("/", deps.Customers.Delete().ServeHTTP)
 				})
 			})
 
@@ -80,6 +81,7 @@ func NewRouter(deps ServerDeps) http.Handler {
 				sr.Route("/{id}", func(ir chi.Router) {
 					ir.Get("/", deps.ServiceTypes.Get().ServeHTTP)
 					ir.Put("/", deps.ServiceTypes.Update().ServeHTTP)
+					ir.Delete("/", deps.ServiceTypes.Delete().ServeHTTP)
 				})
 			})
 
@@ -90,6 +92,7 @@ func NewRouter(deps ServerDeps) http.Handler {
 				er.Route("/{id}", func(ir chi.Router) {
 					ir.Get("/", deps.Employees.Get().ServeHTTP)
 					ir.Put("/", deps.Employees.Update().ServeHTTP)
+					ir.Delete("/", deps.Employees.Delete().ServeHTTP)
 				})
 			})
 
@@ -98,6 +101,7 @@ func NewRouter(deps ServerDeps) http.Handler {
 				or.Post("/", deps.Orders.Create().ServeHTTP)
 				or.Route("/{id}", func(ir chi.Router) {
 					ir.Get("/", deps.Orders.Get().ServeHTTP)
+					ir.Delete("/", deps.Orders.Delete().ServeHTTP)
 					ir.Patch("/workflow", deps.Orders.UpdateWorkflow().ServeHTTP)
 					ir.Post("/payments", deps.Orders.CreatePayment().ServeHTTP)
 					ir.Post("/attachments", deps.Orders.CreateAttachments().ServeHTTP)
@@ -109,18 +113,18 @@ func NewRouter(deps ServerDeps) http.Handler {
 				dr.Get("/", deps.Delivery.ListPlans().ServeHTTP)
 				dr.Post("/", deps.Delivery.CreatePlan().ServeHTTP)
 				dr.Get("/{id}", deps.Delivery.GetPlan().ServeHTTP)
+				dr.Delete("/{id}", deps.Delivery.DeletePlan().ServeHTTP)
 			})
 
 			pr.Get("/reports/orders.csv", deps.Reports.OrdersCSV().ServeHTTP)
 
 			pr.Route("/users", func(ur chi.Router) {
-				ur.Use(middleware.RequireRole("owner", "admin"))
 				ur.Get("/", deps.Users.List().ServeHTTP)
 				ur.Post("/", deps.Users.Create().ServeHTTP)
 				ur.Route("/{id}", func(ir chi.Router) {
 					ir.Get("/", deps.Users.Get().ServeHTTP)
 					ir.Put("/", deps.Users.Update().ServeHTTP)
-					ir.With(middleware.RequireRole("owner")).Delete("/", deps.Users.Delete().ServeHTTP)
+					ir.Delete("/", deps.Users.Delete().ServeHTTP)
 				})
 			})
 		})

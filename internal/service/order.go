@@ -36,6 +36,20 @@ func (s *OrderService) GetDetail(ctx context.Context, id string) (*model.OrderDe
 	return out, nil
 }
 
+func (s *OrderService) Delete(ctx context.Context, id string) error {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return httpapi.BadRequest("validation_error", "ID tidak valid", nil)
+	}
+	if err := s.repo.Delete(ctx, id); err != nil {
+		if err == pgx.ErrNoRows {
+			return httpapi.NotFound("Nota tidak ditemukan")
+		}
+		return err
+	}
+	return nil
+}
+
 type CreateOrderItemInput struct {
 	ServiceTypeID string
 	Quantity      float64
