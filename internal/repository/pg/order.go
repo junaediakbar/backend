@@ -507,14 +507,16 @@ func (r *OrderRepo) CreatePayment(ctx context.Context, orderID string, p reposit
 			FROM laundry_backend.payments
 			WHERE order_id = $1
 		)
-		UPDATE laundry_backend.orders
-		SET payment_status = CASE
-			WHEN (SELECT paid FROM sums) >= total THEN 'paid'
-			WHEN (SELECT paid FROM sums) > 0 THEN 'partial'
-			ELSE 'unpaid'
-		END,
-		updated_at=now()
-		WHERE id = $1
+		UPDATE laundry_backend.orders AS o
+		SET payment_status = (
+			CASE
+				WHEN (SELECT s.paid FROM sums s) >= o.total THEN 'paid'::laundry_backend."PaymentStatus"
+				WHEN (SELECT s.paid FROM sums s) > 0 THEN 'partial'::laundry_backend."PaymentStatus"
+				ELSE 'unpaid'::laundry_backend."PaymentStatus"
+			END
+		),
+		updated_at = now()
+		WHERE o.id = $1
 	`, orderID)
 	if err != nil {
 		return nil, err

@@ -20,6 +20,16 @@ func (h HandlerFunc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			WriteError(w, appErr.Status, appErr.Code, appErr.Message, appErr.Details)
 			return
 		}
+		if mapped := MapPostgresError(err); mapped != nil {
+			log.Printf("http_error req_id=%s method=%s path=%s status=%d code=%s msg=%s pg_err=%v", reqID, r.Method, r.URL.Path, mapped.Status, mapped.Code, mapped.Message, err)
+			WriteError(w, mapped.Status, mapped.Code, mapped.Message, mapped.Details)
+			return
+		}
+		if mapped := MapCommonDriverError(err); mapped != nil {
+			log.Printf("http_error req_id=%s method=%s path=%s status=%d code=%s msg=%s driver_err=%v", reqID, r.Method, r.URL.Path, mapped.Status, mapped.Code, mapped.Message, err)
+			WriteError(w, mapped.Status, mapped.Code, mapped.Message, mapped.Details)
+			return
+		}
 		log.Printf("http_error req_id=%s method=%s path=%s status=%d err=%v stack=%s", reqID, r.Method, r.URL.Path, http.StatusInternalServerError, err, string(debug.Stack()))
 		WriteError(w, http.StatusInternalServerError, "internal", "Terjadi kesalahan internal", nil)
 	}

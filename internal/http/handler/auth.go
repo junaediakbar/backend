@@ -54,7 +54,7 @@ func (h *AuthHandler) Login() http.Handler {
 		}
 		token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(h.jwtSecret))
 		if err != nil {
-			return err
+			return httpapi.Internal("Gagal membuat token sesi")
 		}
 
 		httpapi.WriteOK(w, http.StatusOK, map[string]any{

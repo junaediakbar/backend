@@ -149,6 +149,10 @@ type CreatePaymentInput struct {
 }
 
 func (s *OrderService) CreatePayment(ctx context.Context, orderID string, in CreatePaymentInput) (*model.Payment, error) {
+	orderID = strings.TrimSpace(orderID)
+	if orderID == "" {
+		return nil, httpapi.BadRequest("validation_error", "ID nota tidak valid", nil)
+	}
 	in.Method = strings.TrimSpace(in.Method)
 	if in.Amount <= 0 || in.Method == "" {
 		return nil, httpapi.BadRequest("validation_error", "Nominal dan metode wajib diisi", nil)

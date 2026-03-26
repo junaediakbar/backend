@@ -17,6 +17,7 @@ require (
 	github.com/getkin/kin-openapi v0.132.0
 	github.com/swaggest/swgui v1.8.5
 	golang.org/x/crypto v0.37.0
+	golang.org/x/image v0.37.0
 )
 
 require (
@@ -83,7 +84,6 @@ require (
 	go.opentelemetry.io/otel/metric v1.39.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.39.0 // indirect
 	go.opentelemetry.io/otel/trace v1.39.0 // indirect
-	golang.org/x/image v0.37.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/sys v0.39.0 // indirect
 	golang.org/x/text v0.35.0 // indirect
