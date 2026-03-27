@@ -13,6 +13,7 @@ import (
 
 	"laundry-backend/internal/model"
 	"laundry-backend/internal/repository"
+	"laundry-backend/internal/util"
 )
 
 type OrderRepo struct {
@@ -160,6 +161,7 @@ func (r *OrderRepo) List(ctx context.Context, q string, page, pageSize int, sort
 
 func (r *OrderRepo) GetDetail(ctx context.Context, id string) (*model.OrderDetail, error) {
 	var o model.OrderDetail
+	var imageCol *string
 	err := r.db.Pool.QueryRow(ctx, `
 		SELECT
 			o.id,
@@ -194,11 +196,16 @@ func (r *OrderRepo) GetDetail(ctx context.Context, id string) (*model.OrderDetai
 		&o.ReceivedDate,
 		&o.CompletedDate,
 		&o.PickupDate,
-		&o.Image,
+		&imageCol,
 		&o.Note,
 		&o.CreatedAt,
 		&o.UpdatedAt,
 	)
+	if err == nil {
+		first, all := util.NormalizeOrderImageColumn(imageCol)
+		o.Image = first
+		o.Images = all
+	}
 	if err != nil {
 		return nil, err
 	}

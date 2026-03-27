@@ -22,7 +22,8 @@ type cloudinaryUploadResponse struct {
 	Error     any    `json:"error"`
 }
 
-func UploadOrderImageToCloudinary(ctx context.Context, orderID string, imageBytes []byte) (string, error) {
+// UploadOrderImageToCloudinary uploads one image; slotIndex distinguishes multiple photos per order (0, 1, 2).
+func UploadOrderImageToCloudinary(ctx context.Context, orderID string, slotIndex int, imageBytes []byte) (string, error) {
 	cloudinaryURL := strings.TrimSpace(os.Getenv("CLOUDINARY_URL"))
 	if cloudinaryURL == "" {
 		return "", errors.New("CLOUDINARY_URL is not set")
@@ -60,7 +61,11 @@ func UploadOrderImageToCloudinary(ctx context.Context, orderID string, imageByte
 		return "", fmt.Errorf("multipart write file failed: %w", err)
 	}
 
-	_ = writer.WriteField("public_id", orderID)
+	publicID := orderID
+	if slotIndex >= 0 {
+		publicID = fmt.Sprintf("%s_%d", orderID, slotIndex)
+	}
+	_ = writer.WriteField("public_id", publicID)
 	_ = writer.WriteField("folder", "orders")
 	_ = writer.WriteField("overwrite", "true")
 
@@ -97,17 +102,17 @@ func UploadOrderImageToCloudinary(ctx context.Context, orderID string, imageByte
 	}
 	if out.SecureURL != "" {
 		if len(out.SecureURL) > 80 {
-			log.Printf("cloudinary_upload ok public_id=%s secure_url_prefix=%s", orderID, out.SecureURL[:80])
+			log.Printf("cloudinary_upload ok public_id=%s secure_url_prefix=%s", publicID, out.SecureURL[:80])
 		} else {
-			log.Printf("cloudinary_upload ok public_id=%s secure_url=%s", orderID, out.SecureURL)
+			log.Printf("cloudinary_upload ok public_id=%s secure_url=%s", publicID, out.SecureURL)
 		}
 		return out.SecureURL, nil
 	}
 	if out.URL != "" {
 		if len(out.URL) > 80 {
-			log.Printf("cloudinary_upload ok public_id=%s url_prefix=%s", orderID, out.URL[:80])
+			log.Printf("cloudinary_upload ok public_id=%s url_prefix=%s", publicID, out.URL[:80])
 		} else {
-			log.Printf("cloudinary_upload ok public_id=%s url=%s", orderID, out.URL)
+			log.Printf("cloudinary_upload ok public_id=%s url=%s", publicID, out.URL)
 		}
 		return out.URL, nil
 	}

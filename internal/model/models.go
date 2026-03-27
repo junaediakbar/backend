@@ -77,6 +77,7 @@ type OrderDetail struct {
 	CompletedDate  *time.Time `json:"completedDate,omitempty"`
 	PickupDate     *time.Time `json:"pickupDate,omitempty"`
 	Image          *string    `json:"image,omitempty"`
+	Images         []string   `json:"images,omitempty"`
 	Note           *string    `json:"note,omitempty"`
 	CreatedAt      time.Time  `json:"createdAt"`
 	UpdatedAt      time.Time  `json:"updatedAt"`

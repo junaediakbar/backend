@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"strings"
 	"time"
@@ -80,11 +81,11 @@ type createOrderItemBody struct {
 func (h *OrderHandler) Create() http.Handler {
 	return httpapi.HandlerFunc(func(w http.ResponseWriter, r *http.Request) error {
 		var body createOrderBody
-		var imageBytes []byte
+		var imageParts [][]byte
 
 		ct := r.Header.Get("Content-Type")
 		if strings.HasPrefix(ct, "multipart/form-data") {
-			if err := r.ParseMultipartForm(25 << 20); err != nil {
+			if err := r.ParseMultipartForm(80 << 20); err != nil {
 				return httpapi.BadRequest("invalid_multipart", "Form upload tidak valid", nil)
 			}
 
@@ -106,14 +107,17 @@ func (h *OrderHandler) Create() http.Handler {
 				}
 			}
 
-			f, _, err := r.FormFile("image")
-			if err == nil && f != nil {
-				defer f.Close()
-				imageBytes, err = readLimited(f, 25<<20)
-				if err != nil {
-					return httpapi.BadRequest("validation_error", "File terlalu besar", nil)
+			if r.MultipartForm != nil {
+				nFiles := len(r.MultipartForm.File["images"]) + len(r.MultipartForm.File["image"])
+				if nFiles > 3 {
+					return httpapi.BadRequest("validation_error", "Maksimal 3 gambar", nil)
 				}
 			}
+			parts, err := collectMultipartOrderImages(r)
+			if err != nil {
+				return err
+			}
+			imageParts = parts
 		} else {
 			if err := decodeJSON(r, &body); err != nil {
 				return err
@@ -122,14 +126,14 @@ func (h *OrderHandler) Create() http.Handler {
 
 		receivedDate := time.Now()
 		if body.ReceivedDate != nil && strings.TrimSpace(*body.ReceivedDate) != "" {
-			if t, ok := parseDateOnly(*body.ReceivedDate); ok {
+			if t, ok := parseOrderDateTime(*body.ReceivedDate); ok {
 				receivedDate = t
 			}
 		}
 
 		var completedDate *time.Time
 		if body.CompletedDate != nil && strings.TrimSpace(*body.CompletedDate) != "" {
-			if t, ok := parseDateOnly(*body.CompletedDate); ok {
+			if t, ok := parseOrderDateTime(*body.CompletedDate); ok {
 				completedDate = &t
 			}
 		}
@@ -155,21 +159,30 @@ func (h *OrderHandler) Create() http.Handler {
 			return err
 		}
 
-		if len(imageBytes) > 0 {
-			processed, err := util.ProcessImageToJPEGMaxBytes(imageBytes, 5<<20)
-			if err != nil {
-				return httpapi.BadRequest("validation_error", "Gagal memproses gambar", nil)
-			}
+		if len(imageParts) > 0 {
+			urls := make([]string, 0, len(imageParts))
+			for i, imageBytes := range imageParts {
+				processed, err := util.ProcessImageToJPEGMaxBytes(imageBytes, 5<<20)
+				if err != nil {
+					return httpapi.BadRequest("validation_error", "Gagal memproses gambar", nil)
+				}
 
-			imageURL, err := util.UploadOrderImageToCloudinary(r.Context(), out.ID, processed.Bytes)
-			if err != nil {
-				return httpapi.Internal("Gagal upload gambar")
+				imageURL, err := util.UploadOrderImageToCloudinary(r.Context(), out.ID, i, processed.Bytes)
+				if err != nil {
+					return httpapi.Internal("Gagal upload gambar")
+				}
+				log.Printf("order_image_set order_id=%s image_url_prefix=%s", out.ID, imageURLPrefix(imageURL))
+				urls = append(urls, imageURL)
 			}
-			log.Printf("order_image_set order_id=%s image_url_prefix=%s", out.ID, imageURLPrefix(imageURL))
-			if err := h.svc.UpdateImage(r.Context(), out.ID, &imageURL); err != nil {
-				return err
+			encoded := util.EncodeOrderImagesJSON(urls)
+			if encoded != nil {
+				if err := h.svc.UpdateImage(r.Context(), out.ID, encoded); err != nil {
+					return err
+				}
+				first, all := util.NormalizeOrderImageColumn(encoded)
+				out.Image = first
+				out.Images = all
 			}
-			out.Image = &imageURL
 		}
 
 		httpapi.WriteOK(w, http.StatusCreated, out)
@@ -318,6 +331,69 @@ func parseDateOnly(value string) (time.Time, bool) {
 		return time.Time{}, false
 	}
 	return t, true
+}
+
+// parseOrderDateTime accepts date-only (YYYY-MM-DD), HTML datetime-local (YYYY-MM-DDTHH:MM), RFC3339, etc.
+func parseOrderDateTime(value string) (time.Time, bool) {
+	raw := strings.TrimSpace(value)
+	if raw == "" {
+		return time.Time{}, false
+	}
+	if t, err := time.Parse(time.RFC3339, raw); err == nil {
+		return t, true
+	}
+	layouts := []string{
+		"2006-01-02T15:04",
+		"2006-01-02T15:04:05",
+		"2006-01-02 15:04",
+		"2006-01-02",
+	}
+	for _, layout := range layouts {
+		if t, err := time.ParseInLocation(layout, raw, time.Local); err == nil {
+			return t, true
+		}
+	}
+	return time.Time{}, false
+}
+
+func collectMultipartOrderImages(r *http.Request) ([][]byte, error) {
+	const maxFiles = 3
+	const maxEach = 25 << 20
+	var out [][]byte
+	if r.MultipartForm == nil {
+		return out, nil
+	}
+	appendOne := func(fh *multipart.FileHeader) error {
+		if len(out) >= maxFiles {
+			return nil
+		}
+		f, err := fh.Open()
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		b, err := readLimited(f, maxEach)
+		if err != nil {
+			return err
+		}
+		if len(b) > 0 {
+			out = append(out, b)
+		}
+		return nil
+	}
+	for _, fh := range r.MultipartForm.File["images"] {
+		if err := appendOne(fh); err != nil {
+			return nil, err
+		}
+	}
+	if len(out) < maxFiles {
+		for _, fh := range r.MultipartForm.File["image"] {
+			if err := appendOne(fh); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return out, nil
 }
 
 func trimNotePtr(p *string) *string {

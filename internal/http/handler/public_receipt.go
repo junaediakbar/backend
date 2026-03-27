@@ -44,6 +44,7 @@ type PublicReceipt struct {
 	CompletedDate  *time.Time          `json:"completedDate,omitempty"`
 	PickupDate     *time.Time          `json:"pickupDate,omitempty"`
 	Image          *string             `json:"image,omitempty"`
+	Images         []string            `json:"images,omitempty"`
 	Note           *string             `json:"note,omitempty"`
 	Items          []publicReceiptItem `json:"items"`
 }
@@ -93,6 +94,7 @@ func (h *PublicReceiptHandler) Get() http.Handler {
 			CompletedDate:  out.CompletedDate,
 			PickupDate:     out.PickupDate,
 			Image:          out.Image,
+			Images:         out.Images,
 			Note:           out.Note,
 			Items:          items,
 		}
