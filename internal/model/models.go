@@ -183,8 +183,9 @@ type EmployeePerformanceRow struct {
 }
 
 type Paged[T any] struct {
-	Items    []T `json:"items"`
-	Page     int `json:"page"`
-	PageSize int `json:"pageSize"`
-	Total    int `json:"total"`
+	Items          []T    `json:"items"`
+	Page           int    `json:"page"`
+	PageSize       int    `json:"pageSize"`
+	Total          int    `json:"total"`
+	RevenueTotal   string `json:"revenueTotal,omitempty"` // SUM(order.total) for current filter (numeric string)
 }

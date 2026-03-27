@@ -24,7 +24,7 @@ func NewOrderRepo(db *DB) *OrderRepo {
 	return &OrderRepo{db: db}
 }
 
-func (r *OrderRepo) List(ctx context.Context, q string, page, pageSize int, sort string, dir string) (model.Paged[model.OrderListItem], error) {
+func (r *OrderRepo) List(ctx context.Context, q string, page, pageSize int, sort string, dir string, startDate, endDate *time.Time) (model.Paged[model.OrderListItem], error) {
 	if page < 1 {
 		page = 1
 	}
@@ -36,17 +36,29 @@ func (r *OrderRepo) List(ctx context.Context, q string, page, pageSize int, sort
 	}
 	offset := (page - 1) * pageSize
 
-	where := "true"
-	args := []any{}
+	var conds []string
+	var args []any
 	if strings.TrimSpace(q) != "" {
-		where = `(
+		conds = append(conds, `(
 			LOWER(o.invoice_number) LIKE '%' || LOWER($1) || '%'
 			OR LOWER(c.name) LIKE '%' || LOWER($1) || '%'
 			OR LOWER(COALESCE(c.phone, '')) LIKE '%' || LOWER($1) || '%'
 			OR LOWER(COALESCE(c.email, '')) LIKE '%' || LOWER($1) || '%'
 			OR LOWER(o.id) LIKE '%' || LOWER($1) || '%'
-		)`
+		)`)
 		args = append(args, strings.TrimSpace(q))
+	}
+	if startDate != nil {
+		conds = append(conds, fmt.Sprintf("o.created_at >= $%d", len(args)+1))
+		args = append(args, *startDate)
+	}
+	if endDate != nil {
+		conds = append(conds, fmt.Sprintf("o.created_at <= $%d", len(args)+1))
+		args = append(args, *endDate)
+	}
+	where := "true"
+	if len(conds) > 0 {
+		where = strings.Join(conds, " AND ")
 	}
 
 	sortKey := strings.ToLower(strings.TrimSpace(sort))
@@ -70,12 +82,13 @@ func (r *OrderRepo) List(ctx context.Context, q string, page, pageSize int, sort
 	orderClause := fmt.Sprintf("%s %s", orderBy, dirKey)
 
 	var total int
+	var sumTotal string
 	if err := r.db.Pool.QueryRow(ctx, fmt.Sprintf(`
-		SELECT COUNT(*)
+		SELECT COUNT(*), COALESCE(SUM(o.total), 0)::text
 		FROM laundry_backend.orders o
 		JOIN laundry_backend.customers c ON c.id = o.customer_id
 		WHERE %s
-	`, where), args...).Scan(&total); err != nil {
+	`, where), args...).Scan(&total, &sumTotal); err != nil {
 		return model.Paged[model.OrderListItem]{}, err
 	}
 
@@ -156,7 +169,7 @@ func (r *OrderRepo) List(ctx context.Context, q string, page, pageSize int, sort
 		return model.Paged[model.OrderListItem]{}, err
 	}
 
-	return model.Paged[model.OrderListItem]{Items: out, Page: page, PageSize: pageSize, Total: total}, nil
+	return model.Paged[model.OrderListItem]{Items: out, Page: page, PageSize: pageSize, Total: total, RevenueTotal: sumTotal}, nil
 }
 
 func (r *OrderRepo) GetDetail(ctx context.Context, id string) (*model.OrderDetail, error) {

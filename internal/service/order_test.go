@@ -15,7 +15,7 @@ type fakeOrderRepo struct {
 	createIn repository.CreateOrderParams
 }
 
-func (f *fakeOrderRepo) List(ctx context.Context, q string, page, pageSize int, sort string, dir string) (model.Paged[model.OrderListItem], error) {
+func (f *fakeOrderRepo) List(ctx context.Context, q string, page, pageSize int, sort string, dir string, startDate, endDate *time.Time) (model.Paged[model.OrderListItem], error) {
 	return model.Paged[model.OrderListItem]{}, nil
 }
 func (f *fakeOrderRepo) GetDetail(ctx context.Context, id string) (*model.OrderDetail, error) {

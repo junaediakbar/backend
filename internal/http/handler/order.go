@@ -31,7 +31,15 @@ func (h *OrderHandler) List() http.Handler {
 		pageSize := parseIntQuery(r, "pageSize", 20)
 		sort := strings.TrimSpace(r.URL.Query().Get("sort"))
 		dir := strings.TrimSpace(r.URL.Query().Get("dir"))
-		out, err := h.svc.List(r.Context(), q, page, pageSize, sort, dir)
+		startDate, err := parseDateQuery(r, "startDate", false)
+		if err != nil {
+			return err
+		}
+		endDate, err := parseDateQuery(r, "endDate", true)
+		if err != nil {
+			return err
+		}
+		out, err := h.svc.List(r.Context(), q, page, pageSize, sort, dir, startDate, endDate)
 		if err != nil {
 			return err
 		}
