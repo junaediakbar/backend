@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/lucsky/cuid"
 
 	"laundry-backend/internal/model"
@@ -111,8 +112,16 @@ func (r *EmployeeRepo) Performance(ctx context.Context, start, end *time.Time) (
 	args := []any{}
 	where := "true"
 	if start != nil || end != nil {
-		where = "o.created_at >= COALESCE($1, o.created_at) AND o.created_at <= COALESCE($2, o.created_at)"
-		args = append(args, start, end)
+		conds := []string{"true"}
+		if start != nil {
+			args = append(args, pgtype.Timestamp{Time: *start, Valid: true})
+			conds = append(conds, fmt.Sprintf("o.created_at >= $%d", len(args)))
+		}
+		if end != nil {
+			args = append(args, pgtype.Timestamp{Time: *end, Valid: true})
+			conds = append(conds, fmt.Sprintf("o.created_at <= $%d", len(args)))
+		}
+		where = strings.Join(conds, " AND ")
 	}
 
 	rows, err := r.db.Pool.Query(ctx, fmt.Sprintf(`
