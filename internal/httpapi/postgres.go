@@ -37,6 +37,10 @@ func MapPostgresError(err error) *AppError {
 	case "42804": // datatype_mismatch
 		return Internal("Tipe data di basis data tidak cocok. Jalankan migrasi backend atau hubungi admin.")
 	case "22P02": // invalid_text_representation
+		msg := strings.ToLower(pe.Message)
+		if strings.Contains(msg, "invalid input value for enum") && strings.Contains(msg, "workflowstatus") {
+			return Internal("Status workflow ini belum tersedia di basis data. Jalankan migrasi backend (migrate) lalu restart backend.")
+		}
 		return BadRequest("constraint", "Format nilai tidak valid untuk basis data.", map[string]string{"detail": pe.Message})
 	default:
 		return nil

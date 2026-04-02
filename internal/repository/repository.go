@@ -76,6 +76,7 @@ type OrderRepository interface {
 	UpdateImage(ctx context.Context, orderID string, image *string) error
 	UpdateWorkflow(ctx context.Context, orderID string, workflowStatus string) error
 	CreatePayment(ctx context.Context, orderID string, p CreatePaymentParams) (*model.Payment, error)
+	DeletePayment(ctx context.Context, orderID string, paymentID string) (*model.Payment, error)
 	UpsertWorkAssignment(ctx context.Context, p UpsertWorkAssignmentParams) error
 	DeleteWorkAssignment(ctx context.Context, orderItemID string, taskType string) error
 	CreateAttachments(ctx context.Context, orderID string, files []CreateAttachmentParams) error

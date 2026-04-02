@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -138,18 +139,6 @@ func (r *EmployeeRepo) Performance(ctx context.Context, start, end *time.Time) (
 		totalCents  int64
 	}
 
-	pickupSet := map[string]bool{
-		"pickup_fuel":      true,
-		"pickup_driver":    true,
-		"pickup_worker_1":  true,
-		"pickup_worker_2":  true,
-		"dropoff_fuel":     true,
-		"dropoff_driver":   true,
-		"dropoff_worker_1": true,
-		"dropoff_worker_2": true,
-	}
-	workSet := map[string]bool{"dust_removal": true, "brushing": true, "rinse_sprayer": true, "spin_dry": true, "finishing_packing": true}
-
 	byID := map[string]*agg{}
 	for rows.Next() {
 		var id, name, taskType, sumText string
@@ -162,13 +151,12 @@ func (r *EmployeeRepo) Performance(ctx context.Context, start, end *time.Time) (
 			byID[id] = a
 		}
 		cents := parseCents(sumText)
-		if pickupSet[taskType] {
+		a.totalCents += cents
+		if strings.HasPrefix(taskType, "pickup_") || strings.HasPrefix(taskType, "dropoff_") {
 			a.pickupCents += cents
-		}
-		if workSet[taskType] {
+		} else {
 			a.workCents += cents
 		}
-		a.totalCents += cents
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

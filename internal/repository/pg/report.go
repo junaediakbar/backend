@@ -11,6 +11,11 @@ import (
 	"laundry-backend/internal/repository"
 )
 
+var (
+	// WITA timezone location (GMT+7)
+	witaLocation, _ = time.LoadLocation("Asia/Makassar")
+)
+
 type ReportRepo struct {
 	db *DB
 }
@@ -143,7 +148,7 @@ func (r *ReportRepo) OrdersCSV(ctx context.Context, start, end *time.Time) ([]by
 		}
 		_ = w.Write([]string{
 			o.invoice,
-			o.createdAt.UTC().Format(time.RFC3339),
+			o.createdAt.In(witaLocation).Format(time.RFC3339),
 			o.customerName,
 			itemsText,
 			o.total,

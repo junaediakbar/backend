@@ -481,6 +481,13 @@ func (r *OrderRepo) UpdateWorkflow(ctx context.Context, orderID string, workflow
 			WHERE id=$1
 		`, orderID)
 		return err
+	case "delivered":
+		_, err := r.db.Pool.Exec(ctx, `
+			UPDATE laundry_backend.orders
+			SET workflow_status='delivered', pickup_date=now(), updated_at=now()
+			WHERE id=$1
+		`, orderID)
+		return err
 	case "finished":
 		_, err := r.db.Pool.Exec(ctx, `
 			UPDATE laundry_backend.orders
@@ -517,6 +524,50 @@ func (r *OrderRepo) CreatePayment(ctx context.Context, orderID string, p reposit
 	`, paymentID, orderID, p.Amount, p.Method, p.Note).Scan(
 		&out.ID, &out.OrderID, &out.Amount, &out.Method, &out.PaidAt, &out.Note, &out.CreatedAt,
 	)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = tx.Exec(ctx, `
+		WITH sums AS (
+			SELECT COALESCE(SUM(amount), 0) AS paid
+			FROM laundry_backend.payments
+			WHERE order_id = $1
+		)
+		UPDATE laundry_backend.orders AS o
+		SET payment_status = (
+			CASE
+				WHEN (SELECT s.paid FROM sums s) >= o.total THEN 'paid'::laundry_backend."PaymentStatus"
+				WHEN (SELECT s.paid FROM sums s) > 0 THEN 'partial'::laundry_backend."PaymentStatus"
+				ELSE 'unpaid'::laundry_backend."PaymentStatus"
+			END
+		),
+		updated_at = now()
+		WHERE o.id = $1
+	`, orderID)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (r *OrderRepo) DeletePayment(ctx context.Context, orderID string, paymentID string) (*model.Payment, error) {
+	tx, err := r.db.Pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var out model.Payment
+	err = tx.QueryRow(ctx, `
+		DELETE FROM laundry_backend.payments
+		WHERE id=$1 AND order_id=$2
+		RETURNING id, order_id, amount::text, method, paid_at, note, created_at
+	`, paymentID, orderID).Scan(&out.ID, &out.OrderID, &out.Amount, &out.Method, &out.PaidAt, &out.Note, &out.CreatedAt)
 	if err != nil {
 		return nil, err
 	}

@@ -128,6 +128,7 @@ func (s *OrderService) UpdateWorkflow(ctx context.Context, orderID string, workf
 		"drying":    true,
 		"ironing":   true,
 		"finished":  true,
+		"delivered": true,
 		"picked_up": true,
 	}
 	if !allowed[workflowStatus] {
@@ -165,6 +166,22 @@ func (s *OrderService) CreatePayment(ctx context.Context, orderID string, in Cre
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, httpapi.NotFound("Nota tidak ditemukan")
+		}
+		return nil, err
+	}
+	return out, nil
+}
+
+func (s *OrderService) DeletePayment(ctx context.Context, orderID string, paymentID string) (*model.Payment, error) {
+	orderID = strings.TrimSpace(orderID)
+	paymentID = strings.TrimSpace(paymentID)
+	if orderID == "" || paymentID == "" {
+		return nil, httpapi.BadRequest("validation_error", "ID tidak valid", nil)
+	}
+	out, err := s.repo.DeletePayment(ctx, orderID, paymentID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, httpapi.NotFound("Pembayaran tidak ditemukan")
 		}
 		return nil, err
 	}

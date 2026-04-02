@@ -22,6 +22,8 @@ type Config struct {
 	DBMaxConnLifetime time.Duration
 	DBHealthCheck     time.Duration
 
+	Timezone *time.Location
+
 	AuthMode        string
 	APIKey          string
 	SupabaseJWKSURL string
@@ -34,6 +36,13 @@ type Config struct {
 
 func Load() Config {
 	loadDotEnvFile(".env")
+
+	// Set timezone to WITA (GMT+7)
+	timezone, err := time.LoadLocation("Asia/Makassar")
+	if err != nil {
+		// Fallback to UTC if WITA timezone is not available
+		timezone = time.UTC
+	}
 
 	jwksURL := os.Getenv("SUPABASE_JWKS_URL")
 	issuer := os.Getenv("SUPABASE_ISSUER")
@@ -72,6 +81,8 @@ func Load() Config {
 		DBMaxConnIdleTime: getDuration("DB_MAX_CONN_IDLE_TIME", 5*time.Minute),
 		DBMaxConnLifetime: getDuration("DB_MAX_CONN_LIFETIME", 30*time.Minute),
 		DBHealthCheck:     getDuration("DB_HEALTH_CHECK", 30*time.Second),
+
+		Timezone: timezone,
 
 		AuthMode:        getString("AUTH_MODE", "none"),
 		APIKey:          os.Getenv("API_KEY"),

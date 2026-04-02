@@ -16,10 +16,14 @@ import (
 
 type PublicReceiptHandler struct {
 	orders repository.OrderRepository
+	loc    *time.Location
 }
 
-func NewPublicReceiptHandler(orders repository.OrderRepository) *PublicReceiptHandler {
-	return &PublicReceiptHandler{orders: orders}
+func NewPublicReceiptHandler(orders repository.OrderRepository, loc *time.Location) *PublicReceiptHandler {
+	if loc == nil {
+		loc = time.UTC
+	}
+	return &PublicReceiptHandler{orders: orders, loc: loc}
 }
 
 type publicReceiptItem struct {
@@ -90,9 +94,9 @@ func (h *PublicReceiptHandler) Get() http.Handler {
 			PaidAmount:     util.Money2(paid),
 			PaymentStatus:  out.PaymentStatus,
 			WorkflowStatus: out.WorkflowStatus,
-			ReceivedDate:   out.ReceivedDate,
-			CompletedDate:  out.CompletedDate,
-			PickupDate:     out.PickupDate,
+			ReceivedDate:   keepWallClock(out.ReceivedDate, h.loc),
+			CompletedDate:  keepWallClockPtr(out.CompletedDate, h.loc),
+			PickupDate:     keepWallClockPtr(out.PickupDate, h.loc),
 			Image:          out.Image,
 			Images:         out.Images,
 			Note:           out.Note,

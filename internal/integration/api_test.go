@@ -67,7 +67,7 @@ func TestAPI_CreateCustomerAndList(t *testing.T) {
 		Auth:         middleware.AuthConfig{Mode: "none"},
 		Dashboard:    handler.NewDashboardHandler(service.NewDashboardService(pg.NewDashboardRepo(dbpg))),
 		Customers:    handler.NewCustomerHandler(service.NewCustomerService(pg.NewCustomerRepo(dbpg))),
-		Orders:       handler.NewOrderHandler(service.NewOrderService(pg.NewOrderRepo(dbpg))),
+		Orders:       handler.NewOrderHandler(service.NewOrderService(pg.NewOrderRepo(dbpg)), time.UTC),
 		ServiceTypes: handler.NewServiceTypeHandler(service.NewServiceTypeService(pg.NewServiceTypeRepo(dbpg))),
 		Employees:    handler.NewEmployeeHandler(service.NewEmployeeService(pg.NewEmployeeRepo(dbpg))),
 		Delivery:     handler.NewDeliveryHandler(service.NewDeliveryService(pg.NewDeliveryRepo(dbpg))),

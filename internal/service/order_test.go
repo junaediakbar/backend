@@ -37,6 +37,9 @@ func (f *fakeOrderRepo) UpdateWorkflow(ctx context.Context, orderID string, work
 func (f *fakeOrderRepo) CreatePayment(ctx context.Context, orderID string, p repository.CreatePaymentParams) (*model.Payment, error) {
 	return nil, nil
 }
+func (f *fakeOrderRepo) DeletePayment(ctx context.Context, orderID string, paymentID string) (*model.Payment, error) {
+	return nil, nil
+}
 func (f *fakeOrderRepo) UpsertWorkAssignment(ctx context.Context, p repository.UpsertWorkAssignmentParams) error {
 	return nil
 }

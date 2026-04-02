@@ -12,16 +12,62 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"laundry-backend/internal/httpapi"
+	"laundry-backend/internal/model"
 	"laundry-backend/internal/service"
 	"laundry-backend/internal/util"
 )
 
 type OrderHandler struct {
 	svc *service.OrderService
+	loc *time.Location
 }
 
-func NewOrderHandler(svc *service.OrderService) *OrderHandler {
-	return &OrderHandler{svc: svc}
+func NewOrderHandler(svc *service.OrderService, loc *time.Location) *OrderHandler {
+	if loc == nil {
+		loc = time.UTC
+	}
+	return &OrderHandler{svc: svc, loc: loc}
+}
+
+func keepWallClock(t time.Time, loc *time.Location) time.Time {
+	if loc == nil {
+		return t
+	}
+	return time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), loc)
+}
+
+func keepWallClockPtr(t *time.Time, loc *time.Location) *time.Time {
+	if t == nil {
+		return nil
+	}
+	v := keepWallClock(*t, loc)
+	return &v
+}
+
+func (h *OrderHandler) normalizeOrderTimes(o *model.OrderDetail) {
+	if o == nil {
+		return
+	}
+	o.ReceivedDate = keepWallClock(o.ReceivedDate, h.loc)
+	o.CompletedDate = keepWallClockPtr(o.CompletedDate, h.loc)
+	o.PickupDate = keepWallClockPtr(o.PickupDate, h.loc)
+	o.CreatedAt = keepWallClock(o.CreatedAt, h.loc)
+	o.UpdatedAt = keepWallClock(o.UpdatedAt, h.loc)
+
+	for i := range o.Items {
+		o.Items[i].CreatedAt = keepWallClock(o.Items[i].CreatedAt, h.loc)
+		o.Items[i].UpdatedAt = keepWallClock(o.Items[i].UpdatedAt, h.loc)
+		for j := range o.Items[i].WorkAssignments {
+			o.Items[i].WorkAssignments[j].CreatedAt = keepWallClock(o.Items[i].WorkAssignments[j].CreatedAt, h.loc)
+		}
+	}
+	for i := range o.Payments {
+		o.Payments[i].PaidAt = keepWallClock(o.Payments[i].PaidAt, h.loc)
+		o.Payments[i].CreatedAt = keepWallClock(o.Payments[i].CreatedAt, h.loc)
+	}
+	for i := range o.Attachments {
+		o.Attachments[i].CreatedAt = keepWallClock(o.Attachments[i].CreatedAt, h.loc)
+	}
 }
 
 func (h *OrderHandler) List() http.Handler {
@@ -55,6 +101,7 @@ func (h *OrderHandler) Get() http.Handler {
 		if err != nil {
 			return err
 		}
+		h.normalizeOrderTimes(out)
 		httpapi.WriteOK(w, http.StatusOK, out)
 		return nil
 	})
@@ -132,16 +179,16 @@ func (h *OrderHandler) Create() http.Handler {
 			}
 		}
 
-		receivedDate := time.Now()
+		receivedDate := time.Now().In(h.loc)
 		if body.ReceivedDate != nil && strings.TrimSpace(*body.ReceivedDate) != "" {
-			if t, ok := parseOrderDateTime(*body.ReceivedDate); ok {
+			if t, ok := parseOrderDateTime(*body.ReceivedDate, h.loc); ok {
 				receivedDate = t
 			}
 		}
 
 		var completedDate *time.Time
 		if body.CompletedDate != nil && strings.TrimSpace(*body.CompletedDate) != "" {
-			if t, ok := parseOrderDateTime(*body.CompletedDate); ok {
+			if t, ok := parseOrderDateTime(*body.CompletedDate, h.loc); ok {
 				completedDate = &t
 			}
 		}
@@ -193,6 +240,7 @@ func (h *OrderHandler) Create() http.Handler {
 			}
 		}
 
+		h.normalizeOrderTimes(out)
 		httpapi.WriteOK(w, http.StatusCreated, out)
 		return nil
 	})
@@ -226,8 +274,14 @@ func (h *OrderHandler) UpdateWorkflow() http.Handler {
 	return httpapi.HandlerFunc(func(w http.ResponseWriter, r *http.Request) error {
 		orderID := chi.URLParam(r, "id")
 		var body workflowBody
-		if err := decodeJSON(r, &body); err != nil {
-			return err
+		dec := json.NewDecoder(r.Body)
+		dec.DisallowUnknownFields()
+		if err := dec.Decode(&body); err != nil {
+			workflowStatus := strings.TrimSpace(r.URL.Query().Get("workflowStatus"))
+			if workflowStatus == "" {
+				return httpapi.BadRequest("invalid_json", "Body JSON tidak valid", map[string]string{"detail": err.Error()})
+			}
+			body.WorkflowStatus = workflowStatus
 		}
 		if err := h.svc.UpdateWorkflow(r.Context(), orderID, body.WorkflowStatus); err != nil {
 			return err
@@ -263,8 +317,22 @@ func (h *OrderHandler) CreatePayment() http.Handler {
 	})
 }
 
+func (h *OrderHandler) DeletePayment() http.Handler {
+	return httpapi.HandlerFunc(func(w http.ResponseWriter, r *http.Request) error {
+		orderID := chi.URLParam(r, "id")
+		paymentID := chi.URLParam(r, "paymentId")
+		out, err := h.svc.DeletePayment(r.Context(), orderID, paymentID)
+		if err != nil {
+			return err
+		}
+		httpapi.WriteOK(w, http.StatusOK, out)
+		return nil
+	})
+}
+
 type workAssignmentBody struct {
 	EmployeeID string `json:"employeeId"`
+	Percent    *float64 `json:"percent"`
 }
 
 func (h *OrderHandler) UpsertWorkAssignment() http.Handler {
@@ -273,21 +341,28 @@ func (h *OrderHandler) UpsertWorkAssignment() http.Handler {
 		orderItemID := chi.URLParam(r, "orderItemId")
 		taskType := chi.URLParam(r, "taskType")
 
-		percent, ok := taskPercent(taskType)
-		if !ok {
-			return httpapi.BadRequest("validation_error", "Task type tidak valid", nil)
-		}
-
 		var body workAssignmentBody
 		if err := decodeJSON(r, &body); err != nil {
 			return err
+		}
+
+		employeeID := strings.TrimSpace(body.EmployeeID)
+		percent := 0.0
+		if employeeID != "" {
+			if body.Percent != nil && *body.Percent > 0 {
+				percent = *body.Percent
+			} else if p, ok := taskPercent(taskType); ok {
+				percent = p
+			} else {
+				return httpapi.BadRequest("validation_error", "Percent wajib diisi untuk task baru", nil)
+			}
 		}
 
 		if err := h.svc.UpsertWorkAssignment(r.Context(), service.UpsertWorkAssignmentInput{
 			OrderID:     orderID,
 			OrderItemID: orderItemID,
 			TaskType:    taskType,
-			EmployeeID:  body.EmployeeID,
+			EmployeeID:  employeeID,
 			Percent:     percent,
 		}); err != nil {
 			return err
@@ -342,13 +417,13 @@ func parseDateOnly(value string) (time.Time, bool) {
 }
 
 // parseOrderDateTime accepts date-only (YYYY-MM-DD), HTML datetime-local (YYYY-MM-DDTHH:MM), RFC3339, etc.
-func parseOrderDateTime(value string) (time.Time, bool) {
+func parseOrderDateTime(value string, loc *time.Location) (time.Time, bool) {
 	raw := strings.TrimSpace(value)
 	if raw == "" {
 		return time.Time{}, false
 	}
 	if t, err := time.Parse(time.RFC3339, raw); err == nil {
-		return t, true
+		return t.In(loc), true
 	}
 	layouts := []string{
 		"2006-01-02T15:04",
@@ -357,7 +432,7 @@ func parseOrderDateTime(value string) (time.Time, bool) {
 		"2006-01-02",
 	}
 	for _, layout := range layouts {
-		if t, err := time.ParseInLocation(layout, raw, time.Local); err == nil {
+		if t, err := time.ParseInLocation(layout, raw, loc); err == nil {
 			return t, true
 		}
 	}
