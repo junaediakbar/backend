@@ -174,6 +174,12 @@ type DashboardSummary struct {
 	TotalRevenue  string `json:"totalRevenue"`
 }
 
+type DashboardDailyRow struct {
+	Date        string `json:"date"`
+	OrderCount  int    `json:"orderCount"`
+	Revenue     string `json:"revenue"`
+}
+
 type EmployeePerformanceRow struct {
 	EmployeeID   string `json:"employeeId"`
 	EmployeeName string `json:"employeeName"`

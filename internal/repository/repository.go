@@ -176,7 +176,8 @@ type CreateStopParams struct {
 }
 
 type DashboardRepository interface {
-	Summary(ctx context.Context) (*model.DashboardSummary, error)
+	Summary(ctx context.Context, start, end *time.Time) (*model.DashboardSummary, error)
+	RevenueSeries(ctx context.Context, start, end time.Time) ([]model.DashboardDailyRow, error)
 }
 
 type ReportRepository interface {

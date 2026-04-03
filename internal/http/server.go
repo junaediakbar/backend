@@ -63,6 +63,7 @@ func NewRouter(deps ServerDeps) http.Handler {
 			pr.Use(middleware.WithAuth(deps.Auth, jwksProvider))
 
 			pr.Get("/dashboard/summary", deps.Dashboard.Summary().ServeHTTP)
+			pr.Get("/dashboard/revenue-series", deps.Dashboard.RevenueSeries().ServeHTTP)
 
 			pr.Route("/customers", func(cr chi.Router) {
 				cr.Get("/", deps.Customers.List().ServeHTTP)
