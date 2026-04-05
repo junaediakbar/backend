@@ -542,8 +542,8 @@ func (r *OrderRepo) CreatePayment(ctx context.Context, orderID string, p reposit
 		UPDATE laundry_backend.orders AS o
 		SET payment_status = (
 			CASE
-				WHEN ROUND((SELECT s.paid FROM sums s)::numeric, 2) >= ROUND(o.total::numeric, 2) THEN 'paid'::laundry_backend."PaymentStatus"
-				WHEN ROUND((SELECT s.paid FROM sums s)::numeric, 2) > 0 THEN 'partial'::laundry_backend."PaymentStatus"
+				WHEN ROUND((SELECT s.paid FROM sums s)::numeric, 0) >= ROUND(o.total::numeric, 0) THEN 'paid'::laundry_backend."PaymentStatus"
+				WHEN ROUND((SELECT s.paid FROM sums s)::numeric, 0) > 0 THEN 'partial'::laundry_backend."PaymentStatus"
 				ELSE 'unpaid'::laundry_backend."PaymentStatus"
 			END
 		),
@@ -586,8 +586,8 @@ func (r *OrderRepo) DeletePayment(ctx context.Context, orderID string, paymentID
 		UPDATE laundry_backend.orders AS o
 		SET payment_status = (
 			CASE
-				WHEN ROUND((SELECT s.paid FROM sums s)::numeric, 2) >= ROUND(o.total::numeric, 2) THEN 'paid'::laundry_backend."PaymentStatus"
-				WHEN ROUND((SELECT s.paid FROM sums s)::numeric, 2) > 0 THEN 'partial'::laundry_backend."PaymentStatus"
+				WHEN ROUND((SELECT s.paid FROM sums s)::numeric, 0) >= ROUND(o.total::numeric, 0) THEN 'paid'::laundry_backend."PaymentStatus"
+				WHEN ROUND((SELECT s.paid FROM sums s)::numeric, 0) > 0 THEN 'partial'::laundry_backend."PaymentStatus"
 				ELSE 'unpaid'::laundry_backend."PaymentStatus"
 			END
 		),

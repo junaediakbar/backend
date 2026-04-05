@@ -160,9 +160,12 @@ func (s *OrderService) CreatePayment(ctx context.Context, orderID string, in Cre
 	if orderID == "" {
 		return nil, httpapi.BadRequest("validation_error", "ID nota tidak valid", nil)
 	}
-	in.Method = strings.TrimSpace(in.Method)
+	in.Method = strings.ToLower(strings.TrimSpace(in.Method))
 	if in.Amount <= 0 || in.Method == "" {
 		return nil, httpapi.BadRequest("validation_error", "Nominal dan metode wajib diisi", nil)
+	}
+	if in.Method != "cash" && in.Method != "qris" && in.Method != "lainnya" {
+		return nil, httpapi.BadRequest("validation_error", "Metode harus cash, qris, atau lainnya", nil)
 	}
 	out, err := s.repo.CreatePayment(ctx, orderID, repository.CreatePaymentParams{
 		Amount: util.Money2(in.Amount),

@@ -61,10 +61,8 @@ func (h *OrderHandler) normalizeOrderTimes(o *model.OrderDetail) {
 			o.Items[i].WorkAssignments[j].CreatedAt = keepWallClock(o.Items[i].WorkAssignments[j].CreatedAt, h.loc)
 		}
 	}
-	for i := range o.Payments {
-		o.Payments[i].PaidAt = keepWallClock(o.Payments[i].PaidAt, h.loc)
-		o.Payments[i].CreatedAt = keepWallClock(o.Payments[i].CreatedAt, h.loc)
-	}
+	// Pembayaran: jangan keepWallClock — field ini menyimpan momen (instant) dari DB;
+	// keepWallClock merusak instant saat JSON RFC3339; UI memformat ke WITA dengan benar.
 	for i := range o.Attachments {
 		o.Attachments[i].CreatedAt = keepWallClock(o.Attachments[i].CreatedAt, h.loc)
 	}
