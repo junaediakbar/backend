@@ -30,7 +30,12 @@ func NewPool(ctx context.Context, cfg PoolConfig) (*pgxpool.Pool, error) {
 	}
 	poolCfg.ConnConfig.RuntimeParams["search_path"] = "laundry_backend,public"
 	poolCfg.AfterConnect = func(ctx context.Context, conn *pgx.Conn) error {
-		_, err := conn.Exec(ctx, "SET search_path TO laundry_backend,public")
+		if _, err := conn.Exec(ctx, "SET search_path TO laundry_backend,public"); err != nil {
+			return err
+		}
+		// created_at disimpan sebagai TIMESTAMP naif dari now(); pakai UTC agar cast ke timestamptz
+		// dan perbandingan konsisten dengan parameter dari Go (timestampAsUTCWall).
+		_, err := conn.Exec(ctx, "SET TIME ZONE 'UTC'")
 		return err
 	}
 	if poolCfg.ConnConfig.ConnectTimeout == 0 {

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"time"
 
 	"laundry-backend/internal/httpapi"
 	"laundry-backend/internal/service"
@@ -9,19 +10,23 @@ import (
 
 type ReportHandler struct {
 	svc *service.ReportService
+	loc *time.Location
 }
 
-func NewReportHandler(svc *service.ReportService) *ReportHandler {
-	return &ReportHandler{svc: svc}
+func NewReportHandler(svc *service.ReportService, loc *time.Location) *ReportHandler {
+	if loc == nil {
+		loc = time.UTC
+	}
+	return &ReportHandler{svc: svc, loc: loc}
 }
 
 func (h *ReportHandler) OrdersCSV() http.Handler {
 	return httpapi.HandlerFunc(func(w http.ResponseWriter, r *http.Request) error {
-		start, err := parseDateQuery(r, "startDate", false)
+		start, err := parseDateQuery(r, "startDate", false, h.loc)
 		if err != nil {
 			return err
 		}
-		end, err := parseDateQuery(r, "endDate", true)
+		end, err := parseDateQuery(r, "endDate", true, h.loc)
 		if err != nil {
 			return err
 		}

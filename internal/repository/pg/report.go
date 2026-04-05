@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	// WITA timezone location (GMT+7)
+	// WITA (Asia/Makassar, UTC+8)
 	witaLocation, _ = time.LoadLocation("Asia/Makassar")
 )
 
@@ -29,7 +29,14 @@ func (r *ReportRepo) OrdersCSV(ctx context.Context, start, end *time.Time) ([]by
 	args := []any{}
 	if start != nil || end != nil {
 		where = "o.created_at >= COALESCE($1, o.created_at) AND o.created_at <= COALESCE($2, o.created_at)"
-		args = append(args, start, end)
+		var s, e any
+		if start != nil {
+			s = start.UTC()
+		}
+		if end != nil {
+			e = end.UTC()
+		}
+		args = append(args, s, e)
 	}
 
 	rows, err := r.db.Pool.Query(ctx, fmt.Sprintf(`

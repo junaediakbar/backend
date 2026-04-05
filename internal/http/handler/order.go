@@ -77,11 +77,11 @@ func (h *OrderHandler) List() http.Handler {
 		pageSize := parseIntQuery(r, "pageSize", 20)
 		sort := strings.TrimSpace(r.URL.Query().Get("sort"))
 		dir := strings.TrimSpace(r.URL.Query().Get("dir"))
-		startDate, err := parseDateQuery(r, "startDate", false)
+		startDate, err := parseDateQuery(r, "startDate", false, h.loc)
 		if err != nil {
 			return err
 		}
-		endDate, err := parseDateQuery(r, "endDate", true)
+		endDate, err := parseDateQuery(r, "endDate", true, h.loc)
 		if err != nil {
 			return err
 		}

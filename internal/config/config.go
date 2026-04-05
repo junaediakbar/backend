@@ -37,7 +37,7 @@ type Config struct {
 func Load() Config {
 	loadDotEnvFile(".env")
 
-	// Set timezone to WITA (GMT+7)
+	// Zona bisnis WITA (Asia/Makassar, UTC+8)
 	timezone, err := time.LoadLocation("Asia/Makassar")
 	if err != nil {
 		// Fallback to UTC if WITA timezone is not available

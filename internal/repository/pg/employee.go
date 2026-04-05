@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/lucsky/cuid"
 
 	"laundry-backend/internal/model"
@@ -114,11 +113,11 @@ func (r *EmployeeRepo) Performance(ctx context.Context, start, end *time.Time) (
 	if start != nil || end != nil {
 		conds := []string{"true"}
 		if start != nil {
-			args = append(args, pgtype.Timestamp{Time: *start, Valid: true})
+			args = append(args, timestampAsUTCWall(*start))
 			conds = append(conds, fmt.Sprintf("o.created_at >= $%d", len(args)))
 		}
 		if end != nil {
-			args = append(args, pgtype.Timestamp{Time: *end, Valid: true})
+			args = append(args, timestampAsUTCWall(*end))
 			conds = append(conds, fmt.Sprintf("o.created_at <= $%d", len(args)))
 		}
 		where = strings.Join(conds, " AND ")

@@ -3,10 +3,9 @@ package pg
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgtype"
 
 	"laundry-backend/internal/model"
 	"laundry-backend/internal/repository"
@@ -32,12 +31,12 @@ func (r *DashboardRepo) Summary(ctx context.Context, start, end *time.Time) (*mo
 		createdAtConds := []string{"true"}
 		paymentConds := []string{"true"}
 		if start != nil {
-			args = append(args, pgtype.Timestamp{Time: *start, Valid: true})
+			args = append(args, timestampAsUTCWall(*start))
 			createdAtConds = append(createdAtConds, fmt.Sprintf("created_at >= $%d", len(args)))
 			paymentConds = append(paymentConds, fmt.Sprintf("paid_at >= $%d", len(args)))
 		}
 		if end != nil {
-			args = append(args, pgtype.Timestamp{Time: *end, Valid: true})
+			args = append(args, timestampAsUTCWall(*end))
 			createdAtConds = append(createdAtConds, fmt.Sprintf("created_at <= $%d", len(args)))
 			paymentConds = append(paymentConds, fmt.Sprintf("paid_at <= $%d", len(args)))
 		}
@@ -63,57 +62,98 @@ func (r *DashboardRepo) Summary(ctx context.Context, start, end *time.Time) (*mo
 	return &s, nil
 }
 
+func formatMoneyString(f float64) string {
+	return strconv.FormatFloat(f, 'f', 2, 64)
+}
+
+// RevenueSeries mengagregasi per hari kalender WITA dari created_at / paid_at (bukan string invoice).
+// Prefix invoice dulu memakai time.Now() UTC sehingga tanggal LDR-* bisa tidak sama dengan hari operasional;
+// nota baru memakai zona waktu bisnis di OrderRepo.Create.
 func (r *DashboardRepo) RevenueSeries(ctx context.Context, start, end time.Time) ([]model.DashboardDailyRow, error) {
-	args := []any{
-		pgtype.Timestamp{Time: start, Valid: true},
-		pgtype.Timestamp{Time: end, Valid: true},
+	loc := witaLocation
+	if loc == nil {
+		loc = time.UTC
 	}
+	tStart := timestampAsUTCWall(start)
+	tEnd := timestampAsUTCWall(end)
+
+	type orderAgg struct {
+		count int
+		sum   float64
+	}
+	byDayOrders := map[string]*orderAgg{}
 
 	rows, err := r.db.Pool.Query(ctx, `
-		WITH days AS (
-			SELECT generate_series($1::timestamp, $2::timestamp, interval '1 day')::date AS day
-		),
-		o AS (
-			SELECT
-				created_at::date AS day,
-				COUNT(*)::int AS order_count,
-				COALESCE(SUM(total), 0)::text AS nota_total
-			FROM laundry_backend.orders
-			WHERE created_at >= $1 AND created_at <= $2
-			-- nota_total: semua nota (unpaid/partial/paid), bukan hanya yang sudah lunas
-			GROUP BY 1
-		),
-		p AS (
-			SELECT paid_at::date AS day, COALESCE(SUM(amount), 0)::text AS revenue
-			FROM laundry_backend.payments
-			WHERE paid_at >= $1 AND paid_at <= $2
-			GROUP BY 1
-		)
-		SELECT
-			to_char(d.day, 'YYYY-MM-DD') AS date,
-			COALESCE(o.order_count, 0) AS order_count,
-			COALESCE(o.nota_total, '0.00') AS nota_total,
-			COALESCE(p.revenue, '0.00') AS revenue
-		FROM days d
-		LEFT JOIN o ON o.day = d.day
-		LEFT JOIN p ON p.day = d.day
-		ORDER BY d.day ASC
-	`, args...)
+		SELECT created_at, total::float8
+		FROM laundry_backend.orders
+		WHERE created_at >= $1 AND created_at <= $2
+	`, tStart, tEnd)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-
-	out := []model.DashboardDailyRow{}
 	for rows.Next() {
-		var rrow model.DashboardDailyRow
-		if err := rows.Scan(&rrow.Date, &rrow.OrderCount, &rrow.NotaTotal, &rrow.Revenue); err != nil {
+		var createdAt time.Time
+		var total float64
+		if err := rows.Scan(&createdAt, &total); err != nil {
 			return nil, err
 		}
-		out = append(out, rrow)
+		day := createdAt.In(loc).Format("2006-01-02")
+		a := byDayOrders[day]
+		if a == nil {
+			a = &orderAgg{}
+			byDayOrders[day] = a
+		}
+		a.count++
+		a.sum += total
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
+	}
+
+	byDayRev := map[string]float64{}
+	prows, err := r.db.Pool.Query(ctx, `
+		SELECT paid_at, amount::float8
+		FROM laundry_backend.payments
+		WHERE paid_at >= $1 AND paid_at <= $2
+	`, tStart, tEnd)
+	if err != nil {
+		return nil, err
+	}
+	defer prows.Close()
+	for prows.Next() {
+		var paidAt time.Time
+		var amount float64
+		if err := prows.Scan(&paidAt, &amount); err != nil {
+			return nil, err
+		}
+		day := paidAt.In(loc).Format("2006-01-02")
+		byDayRev[day] += amount
+	}
+	if err := prows.Err(); err != nil {
+		return nil, err
+	}
+
+	first := time.Date(start.In(loc).Year(), start.In(loc).Month(), start.In(loc).Day(), 0, 0, 0, 0, loc)
+	last := time.Date(end.In(loc).Year(), end.In(loc).Month(), end.In(loc).Day(), 0, 0, 0, 0, loc)
+
+	out := make([]model.DashboardDailyRow, 0)
+	for d := first; !d.After(last); d = d.AddDate(0, 0, 1) {
+		key := d.Format("2006-01-02")
+		oa := byDayOrders[key]
+		oc := 0
+		nt := 0.0
+		if oa != nil {
+			oc = oa.count
+			nt = oa.sum
+		}
+		rv := byDayRev[key]
+		out = append(out, model.DashboardDailyRow{
+			Date:       key,
+			OrderCount: oc,
+			NotaTotal:  formatMoneyString(nt),
+			Revenue:    formatMoneyString(rv),
+		})
 	}
 	return out, nil
 }

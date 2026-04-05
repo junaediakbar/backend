@@ -65,13 +65,13 @@ func TestAPI_CreateCustomerAndList(t *testing.T) {
 
 	router := httpserver.NewRouter(httpserver.ServerDeps{
 		Auth:         middleware.AuthConfig{Mode: "none"},
-		Dashboard:    handler.NewDashboardHandler(service.NewDashboardService(pg.NewDashboardRepo(dbpg))),
+		Dashboard:    handler.NewDashboardHandler(service.NewDashboardService(pg.NewDashboardRepo(dbpg)), time.UTC),
 		Customers:    handler.NewCustomerHandler(service.NewCustomerService(pg.NewCustomerRepo(dbpg))),
-		Orders:       handler.NewOrderHandler(service.NewOrderService(pg.NewOrderRepo(dbpg)), time.UTC),
+		Orders:       handler.NewOrderHandler(service.NewOrderService(pg.NewOrderRepo(dbpg, time.UTC)), time.UTC),
 		ServiceTypes: handler.NewServiceTypeHandler(service.NewServiceTypeService(pg.NewServiceTypeRepo(dbpg))),
-		Employees:    handler.NewEmployeeHandler(service.NewEmployeeService(pg.NewEmployeeRepo(dbpg))),
+		Employees:    handler.NewEmployeeHandler(service.NewEmployeeService(pg.NewEmployeeRepo(dbpg)), time.UTC),
 		Delivery:     handler.NewDeliveryHandler(service.NewDeliveryService(pg.NewDeliveryRepo(dbpg))),
-		Reports:      handler.NewReportHandler(service.NewReportService(pg.NewReportRepo(dbpg))),
+		Reports:      handler.NewReportHandler(service.NewReportService(pg.NewReportRepo(dbpg)), time.UTC),
 	})
 
 	srv := httptest.NewServer(router)

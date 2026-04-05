@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"time"
 
 	"laundry-backend/internal/httpapi"
 	"laundry-backend/internal/service"
@@ -9,19 +10,23 @@ import (
 
 type DashboardHandler struct {
 	svc *service.DashboardService
+	loc *time.Location
 }
 
-func NewDashboardHandler(svc *service.DashboardService) *DashboardHandler {
-	return &DashboardHandler{svc: svc}
+func NewDashboardHandler(svc *service.DashboardService, loc *time.Location) *DashboardHandler {
+	if loc == nil {
+		loc = time.UTC
+	}
+	return &DashboardHandler{svc: svc, loc: loc}
 }
 
 func (h *DashboardHandler) Summary() http.Handler {
 	return httpapi.HandlerFunc(func(w http.ResponseWriter, r *http.Request) error {
-		start, err := parseDateQuery(r, "startDate", false)
+		start, err := parseDateQuery(r, "startDate", false, h.loc)
 		if err != nil {
 			return err
 		}
-		end, err := parseDateQuery(r, "endDate", true)
+		end, err := parseDateQuery(r, "endDate", true, h.loc)
 		if err != nil {
 			return err
 		}
@@ -36,11 +41,11 @@ func (h *DashboardHandler) Summary() http.Handler {
 
 func (h *DashboardHandler) RevenueSeries() http.Handler {
 	return httpapi.HandlerFunc(func(w http.ResponseWriter, r *http.Request) error {
-		start, err := parseDateQuery(r, "startDate", false)
+		start, err := parseDateQuery(r, "startDate", false, h.loc)
 		if err != nil {
 			return err
 		}
-		end, err := parseDateQuery(r, "endDate", true)
+		end, err := parseDateQuery(r, "endDate", true, h.loc)
 		if err != nil {
 			return err
 		}

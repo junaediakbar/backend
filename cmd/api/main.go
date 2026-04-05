@@ -56,7 +56,7 @@ func main() {
 	customerRepo := pg.NewCustomerRepo(dbpg)
 	serviceTypeRepo := pg.NewServiceTypeRepo(dbpg)
 	employeeRepo := pg.NewEmployeeRepo(dbpg)
-	orderRepo := pg.NewOrderRepo(dbpg)
+	orderRepo := pg.NewOrderRepo(dbpg, cfg.Timezone)
 	deliveryRepo := pg.NewDeliveryRepo(dbpg)
 	dashboardRepo := pg.NewDashboardRepo(dbpg)
 	reportRepo := pg.NewReportRepo(dbpg)
@@ -82,13 +82,13 @@ func main() {
 		},
 		Authn:          handler.NewAuthHandler(authSvc, cfg.JWTSecret),
 		PublicReceipts: handler.NewPublicReceiptHandler(orderRepo, cfg.Timezone),
-		Dashboard:      handler.NewDashboardHandler(dashboardSvc),
+		Dashboard:      handler.NewDashboardHandler(dashboardSvc, cfg.Timezone),
 		Customers:      handler.NewCustomerHandler(customerSvc),
 		Orders:         handler.NewOrderHandler(orderSvc, cfg.Timezone),
 		ServiceTypes:   handler.NewServiceTypeHandler(serviceTypeSvc),
-		Employees:      handler.NewEmployeeHandler(employeeSvc),
+		Employees:      handler.NewEmployeeHandler(employeeSvc, cfg.Timezone),
 		Delivery:       handler.NewDeliveryHandler(deliverySvc),
-		Reports:        handler.NewReportHandler(reportSvc),
+		Reports:        handler.NewReportHandler(reportSvc, cfg.Timezone),
 		Users:          handler.NewUserHandler(userSvc),
 	})
 

@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -13,10 +14,14 @@ import (
 
 type EmployeeHandler struct {
 	svc *service.EmployeeService
+	loc *time.Location
 }
 
-func NewEmployeeHandler(svc *service.EmployeeService) *EmployeeHandler {
-	return &EmployeeHandler{svc: svc}
+func NewEmployeeHandler(svc *service.EmployeeService, loc *time.Location) *EmployeeHandler {
+	if loc == nil {
+		loc = time.UTC
+	}
+	return &EmployeeHandler{svc: svc, loc: loc}
 }
 
 func (h *EmployeeHandler) List() http.Handler {
@@ -95,11 +100,11 @@ func (h *EmployeeHandler) Delete() http.Handler {
 
 func (h *EmployeeHandler) Performance() http.Handler {
 	return httpapi.HandlerFunc(func(w http.ResponseWriter, r *http.Request) error {
-		start, err := parseDateQuery(r, "startDate", false)
+		start, err := parseDateQuery(r, "startDate", false, h.loc)
 		if err != nil {
 			return err
 		}
-		end, err := parseDateQuery(r, "endDate", true)
+		end, err := parseDateQuery(r, "endDate", true, h.loc)
 		if err != nil {
 			return err
 		}

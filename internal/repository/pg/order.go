@@ -18,10 +18,15 @@ import (
 
 type OrderRepo struct {
 	db *DB
+	// tz zona bisnis untuk prefix invoice LDR-YYYYMMDD (WITA); jika UTC, tanggal invoice bisa bergeser vs operasional.
+	tz *time.Location
 }
 
-func NewOrderRepo(db *DB) *OrderRepo {
-	return &OrderRepo{db: db}
+func NewOrderRepo(db *DB, tz *time.Location) *OrderRepo {
+	if tz == nil {
+		tz = time.UTC
+	}
+	return &OrderRepo{db: db, tz: tz}
 }
 
 func (r *OrderRepo) List(ctx context.Context, q string, page, pageSize int, sort string, dir string, startDate, endDate *time.Time) (model.Paged[model.OrderListItem], error) {
@@ -50,11 +55,11 @@ func (r *OrderRepo) List(ctx context.Context, q string, page, pageSize int, sort
 	}
 	if startDate != nil {
 		conds = append(conds, fmt.Sprintf("o.created_at >= $%d", len(args)+1))
-		args = append(args, *startDate)
+		args = append(args, startDate.UTC())
 	}
 	if endDate != nil {
 		conds = append(conds, fmt.Sprintf("o.created_at <= $%d", len(args)+1))
-		args = append(args, *endDate)
+		args = append(args, endDate.UTC())
 	}
 	where := "true"
 	if len(conds) > 0 {
@@ -383,7 +388,7 @@ func (r *OrderRepo) GetDetailByPublicToken(ctx context.Context, token string) (*
 
 func (r *OrderRepo) Create(ctx context.Context, p repository.CreateOrderParams) (*model.OrderDetail, error) {
 	orderID := cuid.New()
-	now := time.Now()
+	now := time.Now().In(r.tz)
 
 	prefix := fmt.Sprintf("LDR-%04d%02d%02d-", now.Year(), int(now.Month()), now.Day())
 
