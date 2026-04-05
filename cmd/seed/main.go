@@ -327,7 +327,7 @@ func seedOrders(ctx context.Context, pool *pgxpool.Pool, rng *rand.Rand, target 
 		customerID := customerIDs[rng.Intn(len(customerIDs))]
 
 		receivedAt := time.Now().Add(-time.Duration(rng.Intn(30*24)) * time.Hour)
-		workflow := []string{"received", "washing", "drying", "ironing", "finished", "picked_up"}[rng.Intn(6)]
+		workflow := []string{"received", "rontok_done", "jemur_done", "downy_done", "packing_done", "picked_up"}[rng.Intn(6)]
 
 		itemCount := rng.Intn(3) + 1
 		items := make([]orderItemSeed, 0, itemCount)

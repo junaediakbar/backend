@@ -477,28 +477,28 @@ func (r *OrderRepo) UpdateWorkflow(ctx context.Context, orderID string, workflow
 	case "picked_up":
 		_, err := r.db.Pool.Exec(ctx, `
 			UPDATE laundry_backend.orders
-			SET workflow_status='picked_up', pickup_date=now(), updated_at=now()
+			SET workflow_status='picked_up'::laundry_backend."WorkflowStatus", pickup_date=now(), updated_at=now()
 			WHERE id=$1
 		`, orderID)
 		return err
 	case "delivered":
 		_, err := r.db.Pool.Exec(ctx, `
 			UPDATE laundry_backend.orders
-			SET workflow_status='delivered', pickup_date=now(), updated_at=now()
+			SET workflow_status='delivered'::laundry_backend."WorkflowStatus", pickup_date=now(), updated_at=now()
 			WHERE id=$1
 		`, orderID)
 		return err
-	case "finished":
+	case "packing_done", "finished":
 		_, err := r.db.Pool.Exec(ctx, `
 			UPDATE laundry_backend.orders
-			SET workflow_status='finished', pickup_date=NULL, completed_date=now(), updated_at=now()
+			SET workflow_status=$2::laundry_backend."WorkflowStatus", pickup_date=NULL, completed_date=now(), updated_at=now()
 			WHERE id=$1
-		`, orderID)
+		`, orderID, workflowStatus)
 		return err
-	case "received", "washing", "drying", "ironing":
+	case "received", "rontok_done", "jemur_done", "downy_done", "washing", "drying", "ironing":
 		_, err := r.db.Pool.Exec(ctx, `
 			UPDATE laundry_backend.orders
-			SET workflow_status=$2, pickup_date=NULL, completed_date=NULL, updated_at=now()
+			SET workflow_status=$2::laundry_backend."WorkflowStatus", pickup_date=NULL, completed_date=NULL, updated_at=now()
 			WHERE id=$1
 		`, orderID, workflowStatus)
 		return err
@@ -537,8 +537,8 @@ func (r *OrderRepo) CreatePayment(ctx context.Context, orderID string, p reposit
 		UPDATE laundry_backend.orders AS o
 		SET payment_status = (
 			CASE
-				WHEN (SELECT s.paid FROM sums s) >= o.total THEN 'paid'::laundry_backend."PaymentStatus"
-				WHEN (SELECT s.paid FROM sums s) > 0 THEN 'partial'::laundry_backend."PaymentStatus"
+				WHEN ROUND((SELECT s.paid FROM sums s)::numeric, 2) >= ROUND(o.total::numeric, 2) THEN 'paid'::laundry_backend."PaymentStatus"
+				WHEN ROUND((SELECT s.paid FROM sums s)::numeric, 2) > 0 THEN 'partial'::laundry_backend."PaymentStatus"
 				ELSE 'unpaid'::laundry_backend."PaymentStatus"
 			END
 		),
@@ -581,8 +581,8 @@ func (r *OrderRepo) DeletePayment(ctx context.Context, orderID string, paymentID
 		UPDATE laundry_backend.orders AS o
 		SET payment_status = (
 			CASE
-				WHEN (SELECT s.paid FROM sums s) >= o.total THEN 'paid'::laundry_backend."PaymentStatus"
-				WHEN (SELECT s.paid FROM sums s) > 0 THEN 'partial'::laundry_backend."PaymentStatus"
+				WHEN ROUND((SELECT s.paid FROM sums s)::numeric, 2) >= ROUND(o.total::numeric, 2) THEN 'paid'::laundry_backend."PaymentStatus"
+				WHEN ROUND((SELECT s.paid FROM sums s)::numeric, 2) > 0 THEN 'partial'::laundry_backend."PaymentStatus"
 				ELSE 'unpaid'::laundry_backend."PaymentStatus"
 			END
 		),

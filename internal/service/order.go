@@ -11,6 +11,7 @@ import (
 	"laundry-backend/internal/model"
 	"laundry-backend/internal/repository"
 	"laundry-backend/internal/util"
+	"laundry-backend/internal/workflow"
 )
 
 type OrderService struct {
@@ -123,13 +124,18 @@ func (s *OrderService) UpdateImage(ctx context.Context, orderID string, image *s
 func (s *OrderService) UpdateWorkflow(ctx context.Context, orderID string, workflowStatus string) error {
 	workflowStatus = strings.TrimSpace(workflowStatus)
 	allowed := map[string]bool{
-		"received":  true,
+		"received":     true,
+		"rontok_done":  true,
+		"jemur_done":   true,
+		"downy_done":   true,
+		"packing_done": true,
+		"delivered":    true,
+		"picked_up":    true,
+		// legacy
 		"washing":   true,
 		"drying":    true,
 		"ironing":   true,
 		"finished":  true,
-		"delivered": true,
-		"picked_up": true,
 	}
 	if !allowed[workflowStatus] {
 		return httpapi.BadRequest("validation_error", "Workflow status tidak valid", nil)
@@ -205,19 +211,58 @@ func (s *OrderService) UpsertWorkAssignment(ctx context.Context, in UpsertWorkAs
 		return httpapi.BadRequest("validation_error", "Input tidak valid", nil)
 	}
 	if in.EmployeeID == "" {
-		return s.repo.DeleteWorkAssignment(ctx, in.OrderItemID, in.TaskType)
+		if err := s.repo.DeleteWorkAssignment(ctx, in.OrderItemID, in.TaskType); err != nil {
+			return err
+		}
+		return nil
 	}
-	if in.Percent <= 0 {
+	if in.Percent < 0 {
 		return httpapi.BadRequest("validation_error", "Percent tidak valid", nil)
 	}
-	return s.repo.UpsertWorkAssignment(ctx, repository.UpsertWorkAssignmentParams{
+
+	detail, err := s.repo.GetDetail(ctx, in.OrderID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return httpapi.NotFound("Nota tidak ditemukan")
+		}
+		return err
+	}
+	var item *model.OrderItem
+	for i := range detail.Items {
+		if detail.Items[i].ID == in.OrderItemID {
+			item = &detail.Items[i]
+			break
+		}
+	}
+	if item == nil {
+		return httpapi.BadRequest("validation_error", "Item nota tidak ditemukan", nil)
+	}
+	canon := workflow.NormalizeTask(in.TaskType)
+	if !workflow.CanAssignTask(item.WorkAssignments, canon) {
+		return httpapi.BadRequest("validation_error", "Isi tahap produksi sebelumnya terlebih dahulu (rontok opsional boleh dilewati).", nil)
+	}
+
+	if err := s.repo.UpsertWorkAssignment(ctx, repository.UpsertWorkAssignmentParams{
 		OrderID:     in.OrderID,
 		OrderItemID: in.OrderItemID,
 		TaskType:    in.TaskType,
 		EmployeeID:  in.EmployeeID,
 		Percent:     util.Money2(in.Percent),
 		Amount:      "0.00",
-	})
+	}); err != nil {
+		return err
+	}
+
+	after, err := s.repo.GetDetail(ctx, in.OrderID)
+	if err != nil {
+		return err
+	}
+	target := workflow.TargetFromAssignments(after)
+	cur := after.WorkflowStatus
+	if workflow.Rank(target) > workflow.Rank(cur) && workflow.Rank(target) < workflow.Rank(workflow.PickedUp) {
+		_ = s.repo.UpdateWorkflow(ctx, in.OrderID, target)
+	}
+	return nil
 }
 
 type CreateAttachmentInput struct {

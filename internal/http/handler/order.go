@@ -349,12 +349,12 @@ func (h *OrderHandler) UpsertWorkAssignment() http.Handler {
 		employeeID := strings.TrimSpace(body.EmployeeID)
 		percent := 0.0
 		if employeeID != "" {
-			if body.Percent != nil && *body.Percent > 0 {
+			if body.Percent != nil {
 				percent = *body.Percent
 			} else if p, ok := taskPercent(taskType); ok {
 				percent = p
 			} else {
-				return httpapi.BadRequest("validation_error", "Percent wajib diisi untuk task baru", nil)
+				return httpapi.BadRequest("validation_error", "Percent wajib diisi untuk task ini", nil)
 			}
 		}
 
@@ -492,20 +492,43 @@ func trimNotePtr(p *string) *string {
 
 func taskPercent(taskType string) (float64, bool) {
 	switch taskType {
-	case
-		"pickup_fuel",
-		"pickup_driver",
-		"pickup_worker_1",
-		"pickup_worker_2",
-		"dropoff_fuel",
-		"dropoff_driver",
-		"dropoff_worker_1",
-		"dropoff_worker_2":
-		return 2.5, true
-	case "dust_removal", "brushing", "rinse_sprayer", "spin_dry":
+	// Produksi (default)
+	case "rontok", "dust_removal":
+		return 4, true
+	case "sikat", "brushing":
 		return 5, true
-	case "finishing_packing":
-		return 10, true
+	case "bilas", "rinse_sprayer":
+		return 6, true
+	case "jemur", "spin_dry", "spin_dry_1", "spin_dry_2":
+		return 8, true
+	case "downy":
+		return 2, true
+	case "rumbai":
+		return 2, true
+	case "finishing_1", "finishing_2", "finishing_packing":
+		return 3, true
+	// Jemput
+	case "pickup_antar_jemput":
+		return 7.5, true
+	case "pickup_driver":
+		return 3, true
+	case "pickup_buruh_1", "pickup_worker_1":
+		return 1.5, true
+	case "pickup_buruh_2", "pickup_worker_2":
+		return 0, true
+	case "pickup_bensin", "pickup_fuel":
+		return 3, true
+	// Antar
+	case "dropoff_antar_jemput":
+		return 7.5, true
+	case "dropoff_driver":
+		return 3, true
+	case "dropoff_buruh_1", "dropoff_worker_1":
+		return 1.5, true
+	case "dropoff_buruh_2", "dropoff_worker_2":
+		return 0, true
+	case "dropoff_bensin", "dropoff_fuel":
+		return 3, true
 	default:
 		return 0, false
 	}
