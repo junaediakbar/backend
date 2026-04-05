@@ -177,6 +177,7 @@ type DashboardSummary struct {
 type DashboardDailyRow struct {
 	Date        string `json:"date"`
 	OrderCount  int    `json:"orderCount"`
+	NotaTotal   string `json:"notaTotal"` // SUM(order.total) per hari; semua status bayar (termasuk belum lunas)
 	Revenue     string `json:"revenue"`
 }
 

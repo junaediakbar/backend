@@ -74,9 +74,13 @@ func (r *DashboardRepo) RevenueSeries(ctx context.Context, start, end time.Time)
 			SELECT generate_series($1::timestamp, $2::timestamp, interval '1 day')::date AS day
 		),
 		o AS (
-			SELECT created_at::date AS day, COUNT(*)::int AS order_count
+			SELECT
+				created_at::date AS day,
+				COUNT(*)::int AS order_count,
+				COALESCE(SUM(total), 0)::text AS nota_total
 			FROM laundry_backend.orders
 			WHERE created_at >= $1 AND created_at <= $2
+			-- nota_total: semua nota (unpaid/partial/paid), bukan hanya yang sudah lunas
 			GROUP BY 1
 		),
 		p AS (
@@ -88,6 +92,7 @@ func (r *DashboardRepo) RevenueSeries(ctx context.Context, start, end time.Time)
 		SELECT
 			to_char(d.day, 'YYYY-MM-DD') AS date,
 			COALESCE(o.order_count, 0) AS order_count,
+			COALESCE(o.nota_total, '0.00') AS nota_total,
 			COALESCE(p.revenue, '0.00') AS revenue
 		FROM days d
 		LEFT JOIN o ON o.day = d.day
@@ -102,7 +107,7 @@ func (r *DashboardRepo) RevenueSeries(ctx context.Context, start, end time.Time)
 	out := []model.DashboardDailyRow{}
 	for rows.Next() {
 		var rrow model.DashboardDailyRow
-		if err := rows.Scan(&rrow.Date, &rrow.OrderCount, &rrow.Revenue); err != nil {
+		if err := rows.Scan(&rrow.Date, &rrow.OrderCount, &rrow.NotaTotal, &rrow.Revenue); err != nil {
 			return nil, err
 		}
 		out = append(out, rrow)
