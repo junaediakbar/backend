@@ -2,8 +2,10 @@ package pg
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -238,6 +240,8 @@ func (r *OrderRepo) GetDetail(ctx context.Context, id string) (*model.OrderDetai
 			oi.unit_price::text,
 			oi.discount::text,
 			oi.total::text,
+			oi.carpet_length_m::text,
+			oi.carpet_width_m::text,
 			oi.created_at,
 			oi.updated_at
 		FROM laundry_backend.order_items oi
@@ -254,6 +258,7 @@ func (r *OrderRepo) GetDetail(ctx context.Context, id string) (*model.OrderDetai
 	itemIndex := map[string]int{}
 	for itemsRows.Next() {
 		var it model.OrderItem
+		var lenNS, widNS sql.NullString
 		if err := itemsRows.Scan(
 			&it.ID,
 			&it.ServiceType.ID,
@@ -263,10 +268,20 @@ func (r *OrderRepo) GetDetail(ctx context.Context, id string) (*model.OrderDetai
 			&it.UnitPrice,
 			&it.Discount,
 			&it.Total,
+			&lenNS,
+			&widNS,
 			&it.CreatedAt,
 			&it.UpdatedAt,
 		); err != nil {
 			return nil, err
+		}
+		if lenNS.Valid && strings.TrimSpace(lenNS.String) != "" {
+			s := strings.TrimSpace(lenNS.String)
+			it.LengthM = &s
+		}
+		if widNS.Valid && strings.TrimSpace(widNS.String) != "" {
+			s := strings.TrimSpace(widNS.String)
+			it.WidthM = &s
 		}
 		it.WorkAssignments = []model.WorkAssignment{}
 		itemIndex[it.ID] = len(items)
@@ -457,15 +472,34 @@ func (r *OrderRepo) createOrderTx(ctx context.Context, tx pgx.Tx, orderID, invoi
 				unit_price,
 				discount,
 				total,
+				carpet_length_m,
+				carpet_width_m,
 				created_at,
 				updated_at
-			) VALUES ($1,$2,$3,$4,$5,$6,$7,now(),now())
-		`, itemID, orderID, it.ServiceTypeID, it.Quantity, it.UnitPrice, it.Discount, it.Total)
+			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,now(),now())
+		`, itemID, orderID, it.ServiceTypeID, it.Quantity, it.UnitPrice, it.Discount, it.Total,
+			nullableDecimalFromStringPtr(it.LengthM), nullableDecimalFromStringPtr(it.WidthM))
 		if err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// pgx mengikat *string ke DECIMAL tidak selalu konsisten; pakai float64 + NULL eksplisit.
+func nullableDecimalFromStringPtr(s *string) any {
+	if s == nil {
+		return nil
+	}
+	t := strings.TrimSpace(*s)
+	if t == "" {
+		return nil
+	}
+	f, err := strconv.ParseFloat(t, 64)
+	if err != nil {
+		return nil
+	}
+	return f
 }
 
 func (r *OrderRepo) UpdateImage(ctx context.Context, orderID string, image *string) error {

@@ -27,12 +27,14 @@ func NewPublicReceiptHandler(orders repository.OrderRepository, loc *time.Locati
 }
 
 type publicReceiptItem struct {
-	ServiceName string `json:"serviceName"`
-	Unit        string `json:"unit"`
-	Quantity    string `json:"quantity"`
-	UnitPrice   string `json:"unitPrice"`
-	Discount    string `json:"discount"`
-	Total       string `json:"total"`
+	ServiceName string  `json:"serviceName"`
+	Unit        string  `json:"unit"`
+	Quantity    string  `json:"quantity"`
+	UnitPrice   string  `json:"unitPrice"`
+	Discount    string  `json:"discount"`
+	Total       string  `json:"total"`
+	LengthM     *string `json:"lengthM,omitempty"`
+	WidthM      *string `json:"widthM,omitempty"`
 }
 
 type PublicReceipt struct {
@@ -82,6 +84,8 @@ func (h *PublicReceiptHandler) Get() http.Handler {
 				UnitPrice:   it.UnitPrice,
 				Discount:    it.Discount,
 				Total:       it.Total,
+				LengthM:     it.LengthM,
+				WidthM:      it.WidthM,
 			})
 		}
 

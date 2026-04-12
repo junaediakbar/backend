@@ -136,12 +136,14 @@ func JSON() ([]byte, error) {
 	}
 
 	type publicReceiptItem struct {
-		ServiceName string `json:"serviceName"`
-		Unit        string `json:"unit"`
-		Quantity    string `json:"quantity"`
-		UnitPrice   string `json:"unitPrice"`
-		Discount    string `json:"discount"`
-		Total       string `json:"total"`
+		ServiceName string  `json:"serviceName"`
+		Unit        string  `json:"unit"`
+		Quantity    string  `json:"quantity"`
+		UnitPrice   string  `json:"unitPrice"`
+		Discount    string  `json:"discount"`
+		Total       string  `json:"total"`
+		LengthM     *string `json:"lengthM,omitempty"`
+		WidthM      *string `json:"widthM,omitempty"`
 	}
 
 	type publicReceipt struct {

@@ -56,6 +56,8 @@ type CreateOrderItemInput struct {
 	Quantity      float64
 	UnitPrice     float64
 	Discount      float64
+	LengthM       *float64
+	WidthM        *float64
 }
 
 type CreateOrderInput struct {
@@ -88,6 +90,21 @@ func (s *OrderService) Create(ctx context.Context, in CreateOrderInput) (*model.
 		if it.UnitPrice < 0 || it.Discount < 0 {
 			return nil, httpapi.BadRequest("validation_error", "Harga/diskon tidak valid", nil)
 		}
+		hasL := it.LengthM != nil
+		hasW := it.WidthM != nil
+		if hasL != hasW {
+			return nil, httpapi.BadRequest("validation_error", "Panjang dan lebar karpet harus diisi bersamaan", nil)
+		}
+		var lengthStr, widthStr *string
+		if hasL {
+			if *it.LengthM <= 0 || *it.WidthM <= 0 {
+				return nil, httpapi.BadRequest("validation_error", "Ukuran panjang/lebar karpet harus lebih dari 0", nil)
+			}
+			ls := util.Money2(*it.LengthM)
+			ws := util.Money2(*it.WidthM)
+			lengthStr = &ls
+			widthStr = &ws
+		}
 		total := it.Quantity*it.UnitPrice - it.Discount
 		if total < 0 {
 			total = 0
@@ -98,6 +115,8 @@ func (s *OrderService) Create(ctx context.Context, in CreateOrderInput) (*model.
 			UnitPrice:     util.Money2(it.UnitPrice),
 			Discount:      util.Money2(it.Discount),
 			Total:         util.Money2(total),
+			LengthM:       lengthStr,
+			WidthM:        widthStr,
 		})
 	}
 

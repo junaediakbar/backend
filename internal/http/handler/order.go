@@ -125,10 +125,12 @@ type createOrderBody struct {
 }
 
 type createOrderItemBody struct {
-	ServiceTypeID string  `json:"serviceTypeId"`
-	Quantity      float64 `json:"quantity"`
-	UnitPrice     float64 `json:"unitPrice"`
-	Discount      float64 `json:"discount"`
+	ServiceTypeID string   `json:"serviceTypeId"`
+	Quantity      float64  `json:"quantity"`
+	UnitPrice     float64  `json:"unitPrice"`
+	Discount      float64  `json:"discount"`
+	LengthM       *float64 `json:"lengthM"`
+	WidthM        *float64 `json:"widthM"`
 }
 
 func (h *OrderHandler) Create() http.Handler {
@@ -198,6 +200,8 @@ func (h *OrderHandler) Create() http.Handler {
 				Quantity:      it.Quantity,
 				UnitPrice:     it.UnitPrice,
 				Discount:      it.Discount,
+				LengthM:       it.LengthM,
+				WidthM:        it.WidthM,
 			})
 		}
 

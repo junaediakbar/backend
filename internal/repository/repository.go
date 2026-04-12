@@ -97,6 +97,8 @@ type CreateOrderItemParams struct {
 	UnitPrice     string
 	Discount      string
 	Total         string
+	LengthM       *string
+	WidthM        *string
 }
 
 type CreatePaymentParams struct {

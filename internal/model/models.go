@@ -98,6 +98,9 @@ type OrderItem struct {
 	UnitPrice string    `json:"unitPrice"`
 	Discount  string    `json:"discount"`
 	Total     string    `json:"total"`
+	/** Meter; untuk layanan m² (karpet). */
+	LengthM *string `json:"lengthM,omitempty"`
+	WidthM  *string `json:"widthM,omitempty"`
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
 
