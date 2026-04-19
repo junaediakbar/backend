@@ -73,6 +73,7 @@ func NewRouter(deps ServerDeps) http.Handler {
 					ir.Post("/payments", deps.Orders.CreatePayment().ServeHTTP)
 					ir.Delete("/payments/{paymentId}", deps.Orders.DeletePayment().ServeHTTP)
 					ir.Post("/attachments", deps.Orders.CreateAttachments().ServeHTTP)
+					ir.Post("/images", deps.Orders.UploadImages().ServeHTTP)
 				})
 				or.Put("/{orderId}/items/{orderItemId}/work-assignments/{taskType}", deps.Orders.UpsertWorkAssignment().ServeHTTP)
 			})

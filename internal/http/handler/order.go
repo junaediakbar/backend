@@ -390,6 +390,55 @@ type attachmentsBody struct {
 	} `json:"files"`
 }
 
+// UploadImages accepts multipart field "images" (and "image"), uploads to Cloudinary, stores rows in order_attachments.
+func (h *OrderHandler) UploadImages() http.Handler {
+	return httpapi.HandlerFunc(func(w http.ResponseWriter, r *http.Request) error {
+		orderID := strings.TrimSpace(chi.URLParam(r, "id"))
+		if orderID == "" {
+			return httpapi.BadRequest("validation_error", "ID tidak valid", nil)
+		}
+
+		if err := r.ParseMultipartForm(80 << 20); err != nil {
+			return httpapi.BadRequest("invalid_multipart", "Form upload tidak valid", nil)
+		}
+		parts, err := collectMultipartOrderImages(r)
+		if err != nil {
+			return err
+		}
+		if len(parts) == 0 {
+			return httpapi.BadRequest("validation_error", "Pilih minimal satu gambar", nil)
+		}
+
+		if _, err := h.svc.GetDetail(r.Context(), orderID); err != nil {
+			return err
+		}
+
+		files := make([]service.CreateAttachmentInput, 0, len(parts))
+		for i, imageBytes := range parts {
+			processed, err := util.ProcessImageToJPEGMaxBytes(imageBytes, 5<<20)
+			if err != nil {
+				return httpapi.BadRequest("validation_error", "Gagal memproses gambar", nil)
+			}
+			imageURL, err := util.UploadOrderAttachmentImageToCloudinary(r.Context(), orderID, i, processed.Bytes)
+			if err != nil {
+				return httpapi.Internal("Gagal upload gambar")
+			}
+			size := len(processed.Bytes)
+			mime := "image/jpeg"
+			files = append(files, service.CreateAttachmentInput{
+				FilePath:  imageURL,
+				MimeType:  &mime,
+				SizeBytes: &size,
+			})
+		}
+		if err := h.svc.CreateAttachments(r.Context(), orderID, files); err != nil {
+			return err
+		}
+		httpapi.WriteOK(w, http.StatusOK, map[string]bool{"ok": true})
+		return nil
+	})
+}
+
 func (h *OrderHandler) CreateAttachments() http.Handler {
 	return httpapi.HandlerFunc(func(w http.ResponseWriter, r *http.Request) error {
 		orderID := chi.URLParam(r, "id")
