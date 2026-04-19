@@ -102,9 +102,8 @@ func integrityChecks(ctx context.Context, pool *pgxpool.Pool) error {
 	}
 
 	counts := []check{
-		{name: "users", sql: `SELECT COUNT(*) FROM laundry_backend.users`, min: 1},
-		{name: "customers", sql: `SELECT COUNT(*) FROM laundry_backend.customers`, min: 1},
 		{name: "employees", sql: `SELECT COUNT(*) FROM laundry_backend.employees`, min: 1},
+		{name: "customers", sql: `SELECT COUNT(*) FROM laundry_backend.customers`, min: 1},
 		{name: "service_types", sql: `SELECT COUNT(*) FROM laundry_backend.service_types`, min: 1},
 		{name: "orders", sql: `SELECT COUNT(*) FROM laundry_backend.orders`, min: 1},
 		{name: "order_items", sql: `SELECT COUNT(*) FROM laundry_backend.order_items`, min: 1},

@@ -222,6 +222,8 @@ type UpsertWorkAssignmentInput struct {
 	TaskType    string
 	EmployeeID  string
 	Percent     float64
+	/** Jika "employee", penugasan yang sudah ada karyawannya tidak boleh diubah atau dihapus. */
+	ActorRole string
 }
 
 func (s *OrderService) UpsertWorkAssignment(ctx context.Context, in UpsertWorkAssignmentInput) error {
@@ -231,15 +233,6 @@ func (s *OrderService) UpsertWorkAssignment(ctx context.Context, in UpsertWorkAs
 	in.EmployeeID = strings.TrimSpace(in.EmployeeID)
 	if in.OrderID == "" || in.OrderItemID == "" || in.TaskType == "" {
 		return httpapi.BadRequest("validation_error", "Input tidak valid", nil)
-	}
-	if in.EmployeeID == "" {
-		if err := s.repo.DeleteWorkAssignment(ctx, in.OrderItemID, in.TaskType); err != nil {
-			return err
-		}
-		return nil
-	}
-	if in.Percent < 0 {
-		return httpapi.BadRequest("validation_error", "Percent tidak valid", nil)
 	}
 
 	detail, err := s.repo.GetDetail(ctx, in.OrderID)
@@ -259,7 +252,26 @@ func (s *OrderService) UpsertWorkAssignment(ctx context.Context, in UpsertWorkAs
 	if item == nil {
 		return httpapi.BadRequest("validation_error", "Item nota tidak ditemukan", nil)
 	}
+
 	canon := workflow.NormalizeTask(in.TaskType)
+	if strings.EqualFold(strings.TrimSpace(in.ActorRole), "employee") {
+		for _, wa := range item.WorkAssignments {
+			if workflow.NormalizeTask(wa.TaskType) == canon && strings.TrimSpace(wa.Employee.ID) != "" {
+				return httpapi.Forbidden("Penugasan sudah diisi, tidak dapat diubah")
+			}
+		}
+	}
+
+	if in.EmployeeID == "" {
+		if err := s.repo.DeleteWorkAssignment(ctx, in.OrderItemID, in.TaskType); err != nil {
+			return err
+		}
+		return nil
+	}
+	if in.Percent < 0 {
+		return httpapi.BadRequest("validation_error", "Percent tidak valid", nil)
+	}
+
 	if !workflow.CanAssignTask(item.WorkAssignments, canon) {
 		return httpapi.BadRequest("validation_error", "Isi tahap produksi sebelumnya terlebih dahulu (rontok opsional boleh dilewati).", nil)
 	}

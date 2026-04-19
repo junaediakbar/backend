@@ -56,14 +56,15 @@ func JSON() ([]byte, error) {
 	}
 
 	type authLoginData struct {
-		Token string     `json:"token"`
-		User  model.User `json:"user"`
+		Token string         `json:"token"`
+		User  model.Employee `json:"user"`
 	}
 
 	type authMeData struct {
-		ID    string `json:"id"`
-		Email string `json:"email"`
-		Role  string `json:"role"`
+		ID         string `json:"id"`
+		Email      string `json:"email"`
+		Role       string `json:"role"`
+		EmployeeID string `json:"employeeId,omitempty"`
 	}
 
 	type customerUpsertBody struct {
@@ -76,9 +77,20 @@ func JSON() ([]byte, error) {
 		Notes     *string  `json:"notes"`
 	}
 
-	type employeeUpsertBody struct {
+	type employeeCreateBody struct {
 		Name     string `json:"name"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
+		Role     string `json:"role"`
 		IsActive bool   `json:"isActive"`
+	}
+
+	type employeeUpdateBody struct {
+		Name     string  `json:"name"`
+		Email    string  `json:"email"`
+		Role     string  `json:"role"`
+		Password *string `json:"password"`
+		IsActive bool    `json:"isActive"`
 	}
 
 	type serviceTypeUpsertBody struct {
@@ -86,14 +98,6 @@ func JSON() ([]byte, error) {
 		Unit         string  `json:"unit"`
 		DefaultPrice float64 `json:"defaultPrice"`
 		IsActive     bool    `json:"isActive"`
-	}
-
-	type userUpsertBody struct {
-		Name     string  `json:"name"`
-		Email    string  `json:"email"`
-		Role     string  `json:"role"`
-		Password *string `json:"password"`
-		IsActive bool    `json:"isActive"`
 	}
 
 	type workflowBody struct {
@@ -428,7 +432,7 @@ func JSON() ([]byte, error) {
 	addJSON(opEmployeesPerf, http.StatusOK, []model.EmployeePerformanceRow{})
 
 	opEmployeesCreate := addOp(http.MethodPost, "/api/v1/employees", "Create employee", true)
-	addBodyJSON(opEmployeesCreate, employeeUpsertBody{})
+	addBodyJSON(opEmployeesCreate, employeeCreateBody{})
 	addJSON(opEmployeesCreate, http.StatusCreated, model.Employee{})
 
 	opEmployeesGet := addOp(http.MethodGet, "/api/v1/employees/{id}", "Get employee", true)
@@ -437,7 +441,7 @@ func JSON() ([]byte, error) {
 
 	opEmployeesUpdate := addOp(http.MethodPut, "/api/v1/employees/{id}", "Update employee", true)
 	opEmployeesUpdate.Parameters = append(opEmployeesUpdate.Parameters, pathParam("id", &openapi3.SchemaRef{Value: &openapi3.Schema{Type: &openapi3.Types{"string"}}}, "Employee ID"))
-	addBodyJSON(opEmployeesUpdate, employeeUpsertBody{})
+	addBodyJSON(opEmployeesUpdate, employeeUpdateBody{})
 	addJSON(opEmployeesUpdate, http.StatusOK, model.Employee{})
 
 	opEmployeesDelete := addOp(http.MethodDelete, "/api/v1/employees/{id}", "Delete employee", true)
@@ -532,26 +536,6 @@ func JSON() ([]byte, error) {
 		},
 	})
 	addStandardErrors(opReportCSV)
-
-	opUsersList := addOp(http.MethodGet, "/api/v1/users", "List users", true)
-	addJSON(opUsersList, http.StatusOK, []model.User{})
-
-	opUsersCreate := addOp(http.MethodPost, "/api/v1/users", "Create user", true)
-	addBodyJSON(opUsersCreate, userUpsertBody{})
-	addJSON(opUsersCreate, http.StatusCreated, model.User{})
-
-	opUsersGet := addOp(http.MethodGet, "/api/v1/users/{id}", "Get user", true)
-	opUsersGet.Parameters = append(opUsersGet.Parameters, pathParam("id", &openapi3.SchemaRef{Value: &openapi3.Schema{Type: &openapi3.Types{"string"}}}, "User ID"))
-	addJSON(opUsersGet, http.StatusOK, model.User{})
-
-	opUsersUpdate := addOp(http.MethodPut, "/api/v1/users/{id}", "Update user", true)
-	opUsersUpdate.Parameters = append(opUsersUpdate.Parameters, pathParam("id", &openapi3.SchemaRef{Value: &openapi3.Schema{Type: &openapi3.Types{"string"}}}, "User ID"))
-	addBodyJSON(opUsersUpdate, userUpsertBody{})
-	addJSON(opUsersUpdate, http.StatusOK, model.User{})
-
-	opUsersDelete := addOp(http.MethodDelete, "/api/v1/users/{id}", "Delete user", true)
-	opUsersDelete.Parameters = append(opUsersDelete.Parameters, pathParam("id", &openapi3.SchemaRef{Value: &openapi3.Schema{Type: &openapi3.Types{"string"}}}, "User ID"))
-	addJSON(opUsersDelete, http.StatusOK, okResp{OK: true})
 
 	if firstErr != nil {
 		return nil, firstErr

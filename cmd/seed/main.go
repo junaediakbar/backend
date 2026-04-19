@@ -60,30 +60,30 @@ func main() {
 	if err := seedOrders(ctx, pool, rng, 50); err != nil {
 		log.Fatalf("seed orders failed: %v", err)
 	}
-	if err := seedAdminUser(ctx, pool); err != nil {
-		log.Fatalf("seed admin user failed: %v", err)
+	if err := seedAdminEmployee(ctx, pool); err != nil {
+		log.Fatalf("seed admin employee failed: %v", err)
 	}
-	if err := seedDefaultUsers(ctx, pool); err != nil {
-		log.Fatalf("seed default users failed: %v", err)
+	if err := seedDefaultEmployees(ctx, pool); err != nil {
+		log.Fatalf("seed default employees failed: %v", err)
 	}
 
 	log.Printf("seed done")
 }
 
-func seedAdminUser(ctx context.Context, pool *pgxpool.Pool) error {
+func seedAdminEmployee(ctx context.Context, pool *pgxpool.Pool) error {
 	email := strings.TrimSpace(os.Getenv("ADMIN_EMAIL"))
 	password := os.Getenv("ADMIN_PASSWORD")
 	if email == "" || strings.TrimSpace(password) == "" {
-		log.Printf("seed admin user skipped (ADMIN_EMAIL/ADMIN_PASSWORD empty)")
+		log.Printf("seed admin employee skipped (ADMIN_EMAIL/ADMIN_PASSWORD empty)")
 		return nil
 	}
 
 	var exists int
-	if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM laundry_backend.users WHERE lower(email)=lower($1)`, email).Scan(&exists); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM laundry_backend.employees WHERE lower(email)=lower($1)`, email).Scan(&exists); err != nil {
 		return err
 	}
 	if exists > 0 {
-		log.Printf("seed admin user skipped (already exists)")
+		log.Printf("seed admin employee skipped (already exists)")
 		return nil
 	}
 
@@ -94,18 +94,18 @@ func seedAdminUser(ctx context.Context, pool *pgxpool.Pool) error {
 
 	id := cuid.New()
 	_, err = pool.Exec(ctx, `
-		INSERT INTO laundry_backend.users (id, auth_user_id, name, email, role, password_hash, is_active, created_at, updated_at)
-		VALUES ($1,$2,$3,$4,'owner',$5,true,now(),now())
-	`, id, id, "Owner", email, string(hash))
+		INSERT INTO laundry_backend.employees (id, name, email, role, password_hash, is_active, created_at, updated_at)
+		VALUES ($1,$2,$3,'owner',$4,$5,true,now(),now())
+	`, id, "Owner", email, string(hash))
 	if err != nil {
 		return err
 	}
 
-	log.Printf("seed admin user created email=%s role=owner", email)
+	log.Printf("seed admin employee created email=%s role=owner", email)
 	return nil
 }
 
-func seedDefaultUsers(ctx context.Context, pool *pgxpool.Pool) error {
+func seedDefaultEmployees(ctx context.Context, pool *pgxpool.Pool) error {
 	type row struct {
 		envEmail    string
 		envPassword string
@@ -113,31 +113,31 @@ func seedDefaultUsers(ctx context.Context, pool *pgxpool.Pool) error {
 		role        string
 	}
 
-	users := []row{
+	accounts := []row{
 		{envEmail: "SEED_ADMIN_EMAIL", envPassword: "SEED_ADMIN_PASSWORD", name: "Admin", role: "admin"},
 		{envEmail: "SEED_CASHIER_EMAIL", envPassword: "SEED_CASHIER_PASSWORD", name: "Cashier", role: "cashier"},
 	}
 
 	created := 0
-	for _, u := range users {
+	for _, u := range accounts {
 		email := strings.TrimSpace(os.Getenv(u.envEmail))
 		password := os.Getenv(u.envPassword)
 		if email == "" || strings.TrimSpace(password) == "" {
 			continue
 		}
-		if err := seedUser(ctx, pool, u.name, email, u.role, password); err != nil {
+		if err := seedEmployeeAccount(ctx, pool, u.name, email, u.role, password); err != nil {
 			return err
 		}
 		created++
 	}
 
-	log.Printf("seed default users created=%d", created)
+	log.Printf("seed default employees created=%d", created)
 	return nil
 }
 
-func seedUser(ctx context.Context, pool *pgxpool.Pool, name, email, role, password string) error {
+func seedEmployeeAccount(ctx context.Context, pool *pgxpool.Pool, name, email, role, password string) error {
 	var exists int
-	if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM laundry_backend.users WHERE lower(email)=lower($1)`, email).Scan(&exists); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM laundry_backend.employees WHERE lower(email)=lower($1)`, email).Scan(&exists); err != nil {
 		return err
 	}
 	if exists > 0 {
@@ -151,9 +151,9 @@ func seedUser(ctx context.Context, pool *pgxpool.Pool, name, email, role, passwo
 
 	id := cuid.New()
 	_, err = pool.Exec(ctx, `
-		INSERT INTO laundry_backend.users (id, auth_user_id, name, email, role, password_hash, is_active, created_at, updated_at)
-		VALUES ($1,$2,$3,$4,$5,$6,true,now(),now())
-	`, id, id, name, email, role, string(hash))
+		INSERT INTO laundry_backend.employees (id, name, email, role, password_hash, is_active, created_at, updated_at)
+		VALUES ($1,$2,$3,$4,$5,true,now(),now())
+	`, id, name, email, role, string(hash))
 	return err
 }
 
@@ -215,13 +215,20 @@ func seedEmployees(ctx context.Context, pool *pgxpool.Pool, rng *rand.Rand, targ
 	firstNames := []string{"Ari", "Budi", "Dewi", "Fitri", "Hendra", "Iwan", "Joko", "Maya", "Nina", "Rizky", "Sari", "Tono"}
 	roles := []string{"Driver", "Operator", "Admin", "Packing"}
 
+	demoPassHash, err := bcrypt.GenerateFromPassword([]byte("demo-seed-local"), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	passStr := string(demoPassHash)
+
 	toInsert := target - existing
 	for i := 0; i < toInsert; i++ {
 		name := fmt.Sprintf("Demo %s %s %02d", roles[rng.Intn(len(roles))], firstNames[rng.Intn(len(firstNames))], existing+i+1)
+		email := fmt.Sprintf("demo.employee.%s@seed.local", cuid.New())
 		_, err := pool.Exec(ctx, `
-			INSERT INTO laundry_backend.employees (id, name, is_active, created_at, updated_at)
-			VALUES ($1, $2, true, now(), now())
-		`, cuid.New(), name)
+			INSERT INTO laundry_backend.employees (id, name, email, password_hash, role, is_active, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, 'employee', true, now(), now())
+		`, cuid.New(), name, email, passStr)
 		if err != nil {
 			return err
 		}

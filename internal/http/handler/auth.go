@@ -42,11 +42,13 @@ func (h *AuthHandler) Login() http.Handler {
 			return err
 		}
 
+		emp := row.Employee
 		now := time.Now()
 		claims := middleware.Claims{
-			UserID: row.User.ID,
-			Email:  row.User.Email,
-			Role:   row.User.Role,
+			UserID:     emp.ID,
+			Email:      emp.Email,
+			Role:       emp.Role,
+			EmployeeID: emp.ID,
 			RegisteredClaims: jwt.RegisteredClaims{
 				IssuedAt:  jwt.NewNumericDate(now),
 				ExpiresAt: jwt.NewNumericDate(now.Add(7 * 24 * time.Hour)),
@@ -57,9 +59,20 @@ func (h *AuthHandler) Login() http.Handler {
 			return httpapi.Internal("Gagal membuat token sesi")
 		}
 
+		userOut := map[string]any{
+			"id":       emp.ID,
+			"name":     emp.Name,
+			"email":    emp.Email,
+			"role":     emp.Role,
+			"isActive": emp.IsActive,
+		}
+		if emp.Role == "employee" {
+			userOut["employeeId"] = emp.ID
+		}
+
 		httpapi.WriteOK(w, http.StatusOK, map[string]any{
 			"token": token,
-			"user":  row.User,
+			"user":  userOut,
 		})
 		return nil
 	})
@@ -71,11 +84,15 @@ func (h *AuthHandler) Me() http.Handler {
 		if !ok {
 			return httpapi.Unauthorized("Unauthorized")
 		}
-		httpapi.WriteOK(w, http.StatusOK, map[string]any{
+		out := map[string]any{
 			"id":    c.UserID,
 			"email": c.Email,
 			"role":  c.Role,
-		})
+		}
+		if c.EmployeeID != "" {
+			out["employeeId"] = c.EmployeeID
+		}
+		httpapi.WriteOK(w, http.StatusOK, out)
 		return nil
 	})
 }

@@ -28,9 +28,10 @@ const authClaimsKey ctxKey = "authClaims"
 
 type Claims struct {
 	jwt.RegisteredClaims
-	UserID string `json:"uid"`
-	Email  string `json:"email"`
-	Role   string `json:"role"`
+	UserID     string `json:"uid"`
+	Email      string `json:"email"`
+	Role       string `json:"role"`
+	EmployeeID string `json:"employeeId,omitempty"`
 }
 
 type JWKSProvider struct {

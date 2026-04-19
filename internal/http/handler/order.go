@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"laundry-backend/internal/http/middleware"
 	"laundry-backend/internal/httpapi"
 	"laundry-backend/internal/model"
 	"laundry-backend/internal/service"
@@ -360,12 +361,18 @@ func (h *OrderHandler) UpsertWorkAssignment() http.Handler {
 			}
 		}
 
+		actorRole := ""
+		if c, ok := middleware.GetClaims(r.Context()); ok {
+			actorRole = c.Role
+		}
+
 		if err := h.svc.UpsertWorkAssignment(r.Context(), service.UpsertWorkAssignmentInput{
 			OrderID:     orderID,
 			OrderItemID: orderItemID,
 			TaskType:    taskType,
 			EmployeeID:  employeeID,
 			Percent:     percent,
+			ActorRole:   actorRole,
 		}); err != nil {
 			return err
 		}

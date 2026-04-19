@@ -31,7 +31,7 @@ func (r *EmployeeRepo) List(ctx context.Context, onlyActive *bool) ([]model.Empl
 	}
 
 	rows, err := r.db.Pool.Query(ctx, fmt.Sprintf(`
-		SELECT id, name, is_active, created_at, updated_at
+		SELECT id, name, email, role::text, is_active, created_at, updated_at
 		FROM laundry_backend.employees
 		WHERE %s
 		ORDER BY name ASC
@@ -44,7 +44,7 @@ func (r *EmployeeRepo) List(ctx context.Context, onlyActive *bool) ([]model.Empl
 	out := []model.Employee{}
 	for rows.Next() {
 		var e model.Employee
-		if err := rows.Scan(&e.ID, &e.Name, &e.IsActive, &e.CreatedAt, &e.UpdatedAt); err != nil {
+		if err := rows.Scan(&e.ID, &e.Name, &e.Email, &e.Role, &e.IsActive, &e.CreatedAt, &e.UpdatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, e)
@@ -58,24 +58,64 @@ func (r *EmployeeRepo) List(ctx context.Context, onlyActive *bool) ([]model.Empl
 func (r *EmployeeRepo) Get(ctx context.Context, id string) (*model.Employee, error) {
 	var e model.Employee
 	err := r.db.Pool.QueryRow(ctx, `
-		SELECT id, name, is_active, created_at, updated_at
+		SELECT id, name, email, role::text, is_active, created_at, updated_at
 		FROM laundry_backend.employees
 		WHERE id=$1
-	`, id).Scan(&e.ID, &e.Name, &e.IsActive, &e.CreatedAt, &e.UpdatedAt)
+	`, id).Scan(&e.ID, &e.Name, &e.Email, &e.Role, &e.IsActive, &e.CreatedAt, &e.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
 	return &e, nil
 }
 
+func (r *EmployeeRepo) CountEmployeesWithRole(ctx context.Context, role string, excludeEmployeeID *string) (int, error) {
+	role = strings.TrimSpace(role)
+	if role == "" {
+		return 0, nil
+	}
+	var n int
+	var err error
+	if excludeEmployeeID != nil && strings.TrimSpace(*excludeEmployeeID) != "" {
+		err = r.db.Pool.QueryRow(ctx, `
+			SELECT COUNT(*)::int
+			FROM laundry_backend.employees
+			WHERE role::text = $1 AND id <> $2
+		`, role, strings.TrimSpace(*excludeEmployeeID)).Scan(&n)
+	} else {
+		err = r.db.Pool.QueryRow(ctx, `
+			SELECT COUNT(*)::int
+			FROM laundry_backend.employees
+			WHERE role::text = $1
+		`, role).Scan(&n)
+	}
+	if err != nil {
+		return 0, err
+	}
+	return n, nil
+}
+
+func (r *EmployeeRepo) GetByEmailForAuth(ctx context.Context, email string) (*repository.EmployeeAuthRow, error) {
+	var e model.Employee
+	var passwordHash string
+	err := r.db.Pool.QueryRow(ctx, `
+		SELECT id, name, email, role::text, is_active, created_at, updated_at, password_hash
+		FROM laundry_backend.employees
+		WHERE lower(email)=lower($1)
+	`, email).Scan(&e.ID, &e.Name, &e.Email, &e.Role, &e.IsActive, &e.CreatedAt, &e.UpdatedAt, &passwordHash)
+	if err != nil {
+		return nil, err
+	}
+	return &repository.EmployeeAuthRow{Employee: e, PasswordHash: passwordHash}, nil
+}
+
 func (r *EmployeeRepo) Create(ctx context.Context, p repository.CreateEmployeeParams) (*model.Employee, error) {
 	id := cuid.New()
 	var e model.Employee
 	err := r.db.Pool.QueryRow(ctx, `
-		INSERT INTO laundry_backend.employees (id, name, is_active, created_at, updated_at)
-		VALUES ($1, $2, $3, now(), now())
-		RETURNING id, name, is_active, created_at, updated_at
-	`, id, p.Name, p.IsActive).Scan(&e.ID, &e.Name, &e.IsActive, &e.CreatedAt, &e.UpdatedAt)
+		INSERT INTO laundry_backend.employees (id, name, email, password_hash, role, is_active, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, now(), now())
+		RETURNING id, name, email, role::text, is_active, created_at, updated_at
+	`, id, p.Name, p.Email, p.PasswordHash, p.Role, p.IsActive).Scan(&e.ID, &e.Name, &e.Email, &e.Role, &e.IsActive, &e.CreatedAt, &e.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -84,12 +124,24 @@ func (r *EmployeeRepo) Create(ctx context.Context, p repository.CreateEmployeePa
 
 func (r *EmployeeRepo) Update(ctx context.Context, id string, p repository.UpdateEmployeeParams) (*model.Employee, error) {
 	var e model.Employee
+	if p.PasswordHash != nil {
+		err := r.db.Pool.QueryRow(ctx, `
+			UPDATE laundry_backend.employees
+			SET name=$1, email=$2, role=$3, is_active=$4, password_hash=$5, updated_at=now()
+			WHERE id=$6
+			RETURNING id, name, email, role::text, is_active, created_at, updated_at
+		`, p.Name, p.Email, p.Role, p.IsActive, *p.PasswordHash, id).Scan(&e.ID, &e.Name, &e.Email, &e.Role, &e.IsActive, &e.CreatedAt, &e.UpdatedAt)
+		if err != nil {
+			return nil, err
+		}
+		return &e, nil
+	}
 	err := r.db.Pool.QueryRow(ctx, `
 		UPDATE laundry_backend.employees
-		SET name=$1, is_active=$2, updated_at=now()
-		WHERE id=$3
-		RETURNING id, name, is_active, created_at, updated_at
-	`, p.Name, p.IsActive, id).Scan(&e.ID, &e.Name, &e.IsActive, &e.CreatedAt, &e.UpdatedAt)
+		SET name=$1, email=$2, role=$3, is_active=$4, updated_at=now()
+		WHERE id=$5
+		RETURNING id, name, email, role::text, is_active, created_at, updated_at
+	`, p.Name, p.Email, p.Role, p.IsActive, id).Scan(&e.ID, &e.Name, &e.Email, &e.Role, &e.IsActive, &e.CreatedAt, &e.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -107,21 +159,22 @@ func (r *EmployeeRepo) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
-func (r *EmployeeRepo) Performance(ctx context.Context, start, end *time.Time) ([]model.EmployeePerformanceRow, error) {
+func (r *EmployeeRepo) Performance(ctx context.Context, start, end *time.Time, onlyEmployeeID *string) ([]model.EmployeePerformanceRow, error) {
 	args := []any{}
-	where := "true"
-	if start != nil || end != nil {
-		conds := []string{"true"}
-		if start != nil {
-			args = append(args, timestampAsUTCWall(*start))
-			conds = append(conds, fmt.Sprintf("o.created_at >= $%d", len(args)))
-		}
-		if end != nil {
-			args = append(args, timestampAsUTCWall(*end))
-			conds = append(conds, fmt.Sprintf("o.created_at <= $%d", len(args)))
-		}
-		where = strings.Join(conds, " AND ")
+	conds := []string{"true"}
+	if start != nil {
+		args = append(args, timestampAsUTCWall(*start))
+		conds = append(conds, fmt.Sprintf("o.created_at >= $%d", len(args)))
 	}
+	if end != nil {
+		args = append(args, timestampAsUTCWall(*end))
+		conds = append(conds, fmt.Sprintf("o.created_at <= $%d", len(args)))
+	}
+	if onlyEmployeeID != nil && strings.TrimSpace(*onlyEmployeeID) != "" {
+		args = append(args, strings.TrimSpace(*onlyEmployeeID))
+		conds = append(conds, fmt.Sprintf("e.id = $%d", len(args)))
+	}
+	where := strings.Join(conds, " AND ")
 
 	rows, err := r.db.Pool.Query(ctx, fmt.Sprintf(`
 		SELECT

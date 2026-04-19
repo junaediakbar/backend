@@ -64,7 +64,6 @@ func main() {
 	deliveryRepo := pg.NewDeliveryRepo(dbpg)
 	dashboardRepo := pg.NewDashboardRepo(dbpg)
 	reportRepo := pg.NewReportRepo(dbpg)
-	userRepo := pg.NewUserRepo(dbpg)
 
 	customerSvc := service.NewCustomerService(customerRepo)
 	serviceTypeSvc := service.NewServiceTypeService(serviceTypeRepo)
@@ -73,8 +72,7 @@ func main() {
 	deliverySvc := service.NewDeliveryService(deliveryRepo)
 	dashboardSvc := service.NewDashboardService(dashboardRepo)
 	reportSvc := service.NewReportService(reportRepo)
-	userSvc := service.NewUserService(userRepo)
-	authSvc := service.NewAuthService(userRepo)
+	authSvc := service.NewAuthService(employeeRepo)
 
 	router := httpserver.NewRouter(httpserver.ServerDeps{
 		Auth: middleware.AuthConfig{
@@ -93,7 +91,6 @@ func main() {
 		Employees:      handler.NewEmployeeHandler(employeeSvc, cfg.Timezone),
 		Delivery:       handler.NewDeliveryHandler(deliverySvc),
 		Reports:        handler.NewReportHandler(reportSvc, cfg.Timezone),
-		Users:          handler.NewUserHandler(userSvc),
 	})
 
 	srv := &http.Server{

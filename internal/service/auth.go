@@ -12,19 +12,14 @@ import (
 )
 
 type AuthService struct {
-	users repository.UserRepository
+	employees repository.EmployeeRepository
 }
 
-func NewAuthService(users repository.UserRepository) *AuthService {
-	return &AuthService{users: users}
+func NewAuthService(employees repository.EmployeeRepository) *AuthService {
+	return &AuthService{employees: employees}
 }
 
-type LoginResult struct {
-	User  repository.UserAuthRow
-	Token string
-}
-
-func (s *AuthService) Login(ctx context.Context, email, password string) (*repository.UserAuthRow, error) {
+func (s *AuthService) Login(ctx context.Context, email, password string) (*repository.EmployeeAuthRow, error) {
 	email = strings.TrimSpace(email)
 	if email == "" {
 		return nil, httpapi.BadRequest("validation_error", "Email wajib diisi", nil)
@@ -33,15 +28,15 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (*repos
 		return nil, httpapi.BadRequest("validation_error", "Password wajib diisi", nil)
 	}
 
-	row, err := s.users.GetByEmailForAuth(ctx, email)
+	row, err := s.employees.GetByEmailForAuth(ctx, email)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, httpapi.Unauthorized("Email atau password salah")
 		}
 		return nil, err
 	}
-	if !row.User.IsActive {
-		return nil, httpapi.Forbidden("User nonaktif")
+	if !row.Employee.IsActive {
+		return nil, httpapi.Forbidden("Akun nonaktif")
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(row.PasswordHash), []byte(password)); err != nil {
 		return nil, httpapi.Unauthorized("Email atau password salah")

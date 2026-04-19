@@ -54,18 +54,34 @@ type UpdateServiceTypeParams = CreateServiceTypeParams
 type EmployeeRepository interface {
 	List(ctx context.Context, onlyActive *bool) ([]model.Employee, error)
 	Get(ctx context.Context, id string) (*model.Employee, error)
+	GetByEmailForAuth(ctx context.Context, email string) (*EmployeeAuthRow, error)
+	CountEmployeesWithRole(ctx context.Context, role string, excludeEmployeeID *string) (int, error)
 	Create(ctx context.Context, p CreateEmployeeParams) (*model.Employee, error)
 	Update(ctx context.Context, id string, p UpdateEmployeeParams) (*model.Employee, error)
 	Delete(ctx context.Context, id string) error
-	Performance(ctx context.Context, start, end *time.Time) ([]model.EmployeePerformanceRow, error)
+	Performance(ctx context.Context, start, end *time.Time, onlyEmployeeID *string) ([]model.EmployeePerformanceRow, error)
+}
+
+type EmployeeAuthRow struct {
+	Employee     model.Employee
+	PasswordHash string
 }
 
 type CreateEmployeeParams struct {
-	Name     string
-	IsActive bool
+	Name         string
+	Email        string
+	PasswordHash string
+	Role         string
+	IsActive     bool
 }
 
-type UpdateEmployeeParams = CreateEmployeeParams
+type UpdateEmployeeParams struct {
+	Name         string
+	Email        string
+	Role         string
+	IsActive     bool
+	PasswordHash *string
+}
 
 type OrderRepository interface {
 	List(ctx context.Context, q string, page, pageSize int, sort string, dir string, startDate, endDate *time.Time) (model.Paged[model.OrderListItem], error)
@@ -127,36 +143,6 @@ type DeliveryRepository interface {
 	GetPlan(ctx context.Context, id string) (*model.DeliveryPlanDetail, error)
 	CreatePlan(ctx context.Context, p CreatePlanParams) (*model.DeliveryPlanDetail, error)
 	DeletePlan(ctx context.Context, id string) error
-}
-
-type UserRepository interface {
-	List(ctx context.Context) ([]model.User, error)
-	Get(ctx context.Context, id string) (*model.User, error)
-	GetByEmailForAuth(ctx context.Context, email string) (*UserAuthRow, error)
-	Create(ctx context.Context, p CreateUserParams) (*model.User, error)
-	Update(ctx context.Context, id string, p UpdateUserParams) (*model.User, error)
-	Delete(ctx context.Context, id string) error
-}
-
-type UserAuthRow struct {
-	User         model.User
-	PasswordHash string
-}
-
-type CreateUserParams struct {
-	Name         string
-	Email        string
-	Role         string
-	PasswordHash string
-	IsActive     bool
-}
-
-type UpdateUserParams struct {
-	Name         string
-	Email        string
-	Role         string
-	PasswordHash *string
-	IsActive     bool
 }
 
 type CreatePlanParams struct {
