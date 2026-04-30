@@ -61,22 +61,23 @@ func NewRouter(deps ServerDeps) http.Handler {
 		api.Group(func(pr chi.Router) {
 			pr.Use(middleware.WithAuth(deps.Auth, jwksProvider))
 
-			// Karyawan: hanya GET pada /orders (lihat nota).
-			pr.Route("/orders", func(or chi.Router) {
-				or.Use(middleware.OrderEmployeeReadOnly)
-				or.Get("/", deps.Orders.List().ServeHTTP)
-				or.Post("/", deps.Orders.Create().ServeHTTP)
-				or.Route("/{id}", func(ir chi.Router) {
-					ir.Get("/", deps.Orders.Get().ServeHTTP)
-					ir.Delete("/", deps.Orders.Delete().ServeHTTP)
-					ir.Patch("/workflow", deps.Orders.UpdateWorkflow().ServeHTTP)
-					ir.Post("/payments", deps.Orders.CreatePayment().ServeHTTP)
-					ir.Delete("/payments/{paymentId}", deps.Orders.DeletePayment().ServeHTTP)
-					ir.Post("/attachments", deps.Orders.CreateAttachments().ServeHTTP)
-					ir.Post("/images", deps.Orders.UploadImages().ServeHTTP)
-				})
-				or.Put("/{orderId}/items/{orderItemId}/work-assignments/{taskType}", deps.Orders.UpsertWorkAssignment().ServeHTTP)
+		// Karyawan: hanya GET pada /orders (lihat nota).
+		pr.Route("/orders", func(or chi.Router) {
+			or.Use(middleware.OrderEmployeeReadOnly)
+			or.Get("/", deps.Orders.List().ServeHTTP)
+			or.Post("/", deps.Orders.Create().ServeHTTP)
+			or.Route("/{id}", func(ir chi.Router) {
+				ir.Get("/", deps.Orders.Get().ServeHTTP)
+				ir.Delete("/", deps.Orders.Delete().ServeHTTP)
+				ir.Patch("/workflow", deps.Orders.UpdateWorkflow().ServeHTTP)
+				ir.Post("/payments", deps.Orders.CreatePayment().ServeHTTP)
+				ir.Delete("/payments/{paymentId}", deps.Orders.DeletePayment().ServeHTTP)
+				ir.Post("/attachments", deps.Orders.CreateAttachments().ServeHTTP)
+				ir.Post("/images", deps.Orders.UploadImages().ServeHTTP)
 			})
+			or.Put("/{orderId}/items/{orderItemId}/work-assignments/{taskType}", deps.Orders.UpsertWorkAssignment().ServeHTTP)
+			or.Post("/items/{orderItemId}/image", deps.Orders.UploadOrderItemImage().ServeHTTP)
+		})
 
 			// Kinerja: karyawan hanya melihat data sendiri (filter di handler).
 			pr.Route("/employees", func(er chi.Router) {

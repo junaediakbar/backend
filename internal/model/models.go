@@ -103,6 +103,7 @@ type OrderItem struct {
 	/** Meter; untuk layanan m² (karpet). */
 	LengthM *string `json:"lengthM,omitempty"`
 	WidthM  *string `json:"widthM,omitempty"`
+	Image   *string   `json:"image,omitempty"`
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
 

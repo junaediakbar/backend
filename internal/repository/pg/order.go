@@ -242,6 +242,7 @@ func (r *OrderRepo) GetDetail(ctx context.Context, id string) (*model.OrderDetai
 			oi.total::text,
 			oi.carpet_length_m::text,
 			oi.carpet_width_m::text,
+			oi.image,
 			oi.created_at,
 			oi.updated_at
 		FROM laundry_backend.order_items oi
@@ -259,6 +260,7 @@ func (r *OrderRepo) GetDetail(ctx context.Context, id string) (*model.OrderDetai
 	for itemsRows.Next() {
 		var it model.OrderItem
 		var lenNS, widNS sql.NullString
+		var imageCol *string
 		if err := itemsRows.Scan(
 			&it.ID,
 			&it.ServiceType.ID,
@@ -270,6 +272,7 @@ func (r *OrderRepo) GetDetail(ctx context.Context, id string) (*model.OrderDetai
 			&it.Total,
 			&lenNS,
 			&widNS,
+			&imageCol,
 			&it.CreatedAt,
 			&it.UpdatedAt,
 		); err != nil {
@@ -282,6 +285,10 @@ func (r *OrderRepo) GetDetail(ctx context.Context, id string) (*model.OrderDetai
 		if widNS.Valid && strings.TrimSpace(widNS.String) != "" {
 			s := strings.TrimSpace(widNS.String)
 			it.WidthM = &s
+		}
+		if imageCol != nil && strings.TrimSpace(*imageCol) != "" {
+			s := strings.TrimSpace(*imageCol)
+			it.Image = &s
 		}
 		it.WorkAssignments = []model.WorkAssignment{}
 		itemIndex[it.ID] = len(items)
@@ -474,11 +481,12 @@ func (r *OrderRepo) createOrderTx(ctx context.Context, tx pgx.Tx, orderID, invoi
 				total,
 				carpet_length_m,
 				carpet_width_m,
+				image,
 				created_at,
 				updated_at
-			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,now(),now())
+			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,now(),now())
 		`, itemID, orderID, it.ServiceTypeID, it.Quantity, it.UnitPrice, it.Discount, it.Total,
-			nullableDecimalFromStringPtr(it.LengthM), nullableDecimalFromStringPtr(it.WidthM))
+			nullableDecimalFromStringPtr(it.LengthM), nullableDecimalFromStringPtr(it.WidthM), it.Image)
 		if err != nil {
 			return err
 		}
@@ -508,6 +516,15 @@ func (r *OrderRepo) UpdateImage(ctx context.Context, orderID string, image *stri
 		SET image=$2, updated_at=now()
 		WHERE id=$1
 	`, orderID, image)
+	return err
+}
+
+func (r *OrderRepo) UpdateOrderItemImage(ctx context.Context, orderItemID string, image *string) error {
+	_, err := r.db.Pool.Exec(ctx, `
+		UPDATE laundry_backend.order_items
+		SET image=$2, updated_at=now()
+		WHERE id=$1
+	`, orderItemID, image)
 	return err
 }
 

@@ -132,6 +132,7 @@ type createOrderItemBody struct {
 	Discount      float64  `json:"discount"`
 	LengthM       *float64 `json:"lengthM"`
 	WidthM        *float64 `json:"widthM"`
+	Image         *string  `json:"image,omitempty"`
 }
 
 func (h *OrderHandler) Create() http.Handler {
@@ -203,6 +204,7 @@ func (h *OrderHandler) Create() http.Handler {
 				Discount:      it.Discount,
 				LengthM:       it.LengthM,
 				WidthM:        it.WidthM,
+				Image:         it.Image,
 			})
 		}
 
@@ -458,6 +460,65 @@ func (h *OrderHandler) CreateAttachments() http.Handler {
 			return err
 		}
 		httpapi.WriteOK(w, http.StatusOK, map[string]bool{"ok": true})
+		return nil
+	})
+}
+
+// UploadOrderItemImage accepts a single image file and uploads it to Cloudinary, storing in order_items.image.
+func (h *OrderHandler) UploadOrderItemImage() http.Handler {
+	return httpapi.HandlerFunc(func(w http.ResponseWriter, r *http.Request) error {
+		orderItemID := strings.TrimSpace(chi.URLParam(r, "orderItemId"))
+		if orderItemID == "" {
+			return httpapi.BadRequest("validation_error", "ID item nota tidak valid", nil)
+		}
+
+		if err := r.ParseMultipartForm(80 << 20); err != nil {
+			return httpapi.BadRequest("invalid_multipart", "Form upload tidak valid", nil)
+		}
+
+		// Get the image file (field name can be "image" or "images")
+		var fileHeader *multipart.FileHeader
+		if r.MultipartForm != nil {
+			if len(r.MultipartForm.File["image"]) > 0 {
+				fileHeader = r.MultipartForm.File["image"][0]
+			} else if len(r.MultipartForm.File["images"]) > 0 {
+				fileHeader = r.MultipartForm.File["images"][0]
+			}
+		}
+
+		if fileHeader == nil {
+			return httpapi.BadRequest("validation_error", "Pilih satu gambar", nil)
+		}
+
+		f, err := fileHeader.Open()
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		imageBytes, err := readLimited(f, 25<<20) // Max 25MB
+		if err != nil {
+			return err
+		}
+
+		processed, err := util.ProcessImageToJPEGMaxBytes(imageBytes, 5<<20) // Max 5MB after processing
+		if err != nil {
+			return httpapi.BadRequest("validation_error", "Gagal memproses gambar", nil)
+		}
+
+		imageURL, err := util.UploadOrderItemImageToCloudinary(r.Context(), orderItemID, processed.Bytes)
+		if err != nil {
+			log.Printf("order_item_image_upload failed order_item_id=%s: %v", orderItemID, err)
+			return httpapi.Internal("Gagal upload gambar")
+		}
+
+		log.Printf("order_item_image_set order_item_id=%s image_url_prefix=%s", orderItemID, imageURLPrefix(imageURL))
+
+		if err := h.svc.UpdateOrderItemImage(r.Context(), orderItemID, &imageURL); err != nil {
+			return err
+		}
+
+		httpapi.WriteOK(w, http.StatusOK, map[string]string{"imageUrl": imageURL})
 		return nil
 	})
 }

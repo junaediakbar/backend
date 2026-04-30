@@ -90,6 +90,7 @@ type OrderRepository interface {
 	Create(ctx context.Context, p CreateOrderParams) (*model.OrderDetail, error)
 	Delete(ctx context.Context, id string) error
 	UpdateImage(ctx context.Context, orderID string, image *string) error
+	UpdateOrderItemImage(ctx context.Context, orderItemID string, image *string) error
 	UpdateWorkflow(ctx context.Context, orderID string, workflowStatus string) error
 	CreatePayment(ctx context.Context, orderID string, p CreatePaymentParams) (*model.Payment, error)
 	DeletePayment(ctx context.Context, orderID string, paymentID string) (*model.Payment, error)
@@ -115,6 +116,7 @@ type CreateOrderItemParams struct {
 	Total         string
 	LengthM       *string
 	WidthM        *string
+	Image         *string
 }
 
 type CreatePaymentParams struct {

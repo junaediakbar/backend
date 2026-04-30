@@ -35,6 +35,7 @@ type publicReceiptItem struct {
 	Total       string  `json:"total"`
 	LengthM     *string `json:"lengthM,omitempty"`
 	WidthM      *string `json:"widthM,omitempty"`
+	Image       *string `json:"image,omitempty"`
 }
 
 type PublicReceipt struct {
@@ -86,6 +87,7 @@ func (h *PublicReceiptHandler) Get() http.Handler {
 				Total:       it.Total,
 				LengthM:     it.LengthM,
 				WidthM:      it.WidthM,
+				Image:       it.Image,
 			})
 		}
 

@@ -215,3 +215,13 @@ func UploadOrderAttachmentImageToCloudinary(ctx context.Context, orderID string,
 	return uploadOrderImageToCloudinaryWithPublicID(ctx, publicID, imageBytes)
 }
 
+// UploadOrderItemImageToCloudinary uploads a single image for an order item.
+func UploadOrderItemImageToCloudinary(ctx context.Context, orderItemID string, imageBytes []byte) (string, error) {
+	orderItemID = strings.TrimSpace(orderItemID)
+	if orderItemID == "" {
+		return "", errors.New("order item id is empty")
+	}
+	publicID := fmt.Sprintf("%s_item", orderItemID)
+	return uploadOrderImageToCloudinaryWithPublicID(ctx, publicID, imageBytes)
+}
+

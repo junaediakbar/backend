@@ -58,6 +58,7 @@ type CreateOrderItemInput struct {
 	Discount      float64
 	LengthM       *float64
 	WidthM        *float64
+	Image         *string
 }
 
 type CreateOrderInput struct {
@@ -134,6 +135,16 @@ func (s *OrderService) UpdateImage(ctx context.Context, orderID string, image *s
 	if err := s.repo.UpdateImage(ctx, orderID, image); err != nil {
 		if err == pgx.ErrNoRows {
 			return httpapi.NotFound("Nota tidak ditemukan")
+		}
+		return err
+	}
+	return nil
+}
+
+func (s *OrderService) UpdateOrderItemImage(ctx context.Context, orderItemID string, image *string) error {
+	if err := s.repo.UpdateOrderItemImage(ctx, orderItemID, image); err != nil {
+		if err == pgx.ErrNoRows {
+			return httpapi.NotFound("Item nota tidak ditemukan")
 		}
 		return err
 	}
