@@ -237,6 +237,98 @@ func (r *EmployeeRepo) Performance(ctx context.Context, start, end *time.Time, o
 	return out, nil
 }
 
+func (r *EmployeeRepo) PerformanceDetail(ctx context.Context, employeeID string, start, end *time.Time) ([]model.EmployeePerformanceDetailRow, error) {
+	args := []any{employeeID}
+	conds := []string{"e.id = $1"}
+
+	if start != nil {
+		args = append(args, timestampAsUTCWall(*start))
+		conds = append(conds, fmt.Sprintf("o.created_at >= $%d", len(args)))
+	}
+	if end != nil {
+		args = append(args, timestampAsUTCWall(*end))
+		conds = append(conds, fmt.Sprintf("o.created_at <= $%d", len(args)))
+	}
+	where := strings.Join(conds, " AND ")
+
+	rows, err := r.db.Pool.Query(ctx, fmt.Sprintf(`
+		SELECT
+			o.id,
+			o.invoice_number,
+			c.name,
+			o.created_at::text,
+			o.workflow_status::text,
+			wa.task_type::text,
+			SUM(wa.amount)::text
+		FROM laundry_backend.work_assignments wa
+		JOIN laundry_backend.employees e ON e.id = wa.employee_id
+		JOIN laundry_backend.orders o ON o.id = wa.order_id
+		JOIN laundry_backend.customers c ON c.id = o.customer_id
+		WHERE %s
+		GROUP BY o.id, o.invoice_number, c.name, o.created_at, o.workflow_status, wa.task_type
+		ORDER BY o.created_at DESC
+	`, where), args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	type orderAgg struct {
+		orderID         string
+		invoiceNumber   string
+		customerName    string
+		createdAt       string
+		workflowStatus  string
+		pickupCents     int64
+		workCents       int64
+		totalCents      int64
+	}
+
+	byOrder := map[string]*orderAgg{}
+	for rows.Next() {
+		var orderID, invoiceNumber, customerName, createdAt, workflowStatus, taskType, sumText string
+		if err := rows.Scan(&orderID, &invoiceNumber, &customerName, &createdAt, &workflowStatus, &taskType, &sumText); err != nil {
+			return nil, err
+		}
+		agg := byOrder[orderID]
+		if agg == nil {
+			agg = &orderAgg{
+				orderID:        orderID,
+				invoiceNumber:  invoiceNumber,
+				customerName:   customerName,
+				createdAt:      createdAt,
+				workflowStatus: workflowStatus,
+			}
+			byOrder[orderID] = agg
+		}
+		cents := parseCents(sumText)
+		agg.totalCents += cents
+		if strings.HasPrefix(taskType, "pickup_") || strings.HasPrefix(taskType, "dropoff_") {
+			agg.pickupCents += cents
+		} else {
+			agg.workCents += cents
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	out := make([]model.EmployeePerformanceDetailRow, 0, len(byOrder))
+	for _, agg := range byOrder {
+		out = append(out, model.EmployeePerformanceDetailRow{
+			OrderID:         agg.orderID,
+			InvoiceNumber:   agg.invoiceNumber,
+			CustomerName:    agg.customerName,
+			CreatedAt:       agg.createdAt,
+			WorkflowStatus:  agg.workflowStatus,
+			PickupAmount:    formatCents(agg.pickupCents),
+			WorkAmount:      formatCents(agg.workCents),
+			TotalAmount:     formatCents(agg.totalCents),
+		})
+	}
+	return out, nil
+}
+
 func parseCents(s string) int64 {
 	var whole int64
 	var frac int64

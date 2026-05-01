@@ -82,6 +82,7 @@ func NewRouter(deps ServerDeps) http.Handler {
 			// Kinerja: karyawan hanya melihat data sendiri (filter di handler).
 			pr.Route("/employees", func(er chi.Router) {
 				er.Get("/performance", deps.Employees.Performance().ServeHTTP)
+					er.Get("/{id}/performance-detail", deps.Employees.PerformanceDetail().ServeHTTP)
 				// Daftar nama untuk penugasan nota — semua role yang login; karyawan dapat versi tanpa email/role.
 				er.Get("/", deps.Employees.List().ServeHTTP)
 				er.Group(func(ier chi.Router) {

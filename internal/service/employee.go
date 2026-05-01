@@ -141,6 +141,13 @@ func (s *EmployeeService) Performance(ctx context.Context, start, end *time.Time
 	return s.repo.Performance(ctx, start, end, onlyEmployeeID)
 }
 
+func (s *EmployeeService) PerformanceDetail(ctx context.Context, employeeID string, start, end *time.Time) ([]model.EmployeePerformanceDetailRow, error) {
+	if employeeID == "" {
+		return nil, httpapi.BadRequest("validation_error", "Employee ID wajib diisi", nil)
+	}
+	return s.repo.PerformanceDetail(ctx, employeeID, start, end)
+}
+
 func (s *EmployeeService) ensureAtMostOneOwner(ctx context.Context, desiredRole string, editingEmployeeID *string) error {
 	if strings.ToLower(strings.TrimSpace(desiredRole)) != "owner" {
 		return nil

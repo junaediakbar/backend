@@ -177,3 +177,51 @@ func (h *EmployeeHandler) Performance() http.Handler {
 		return nil
 	})
 }
+
+func (h *EmployeeHandler) PerformanceDetail() http.Handler {
+	return httpapi.HandlerFunc(func(w http.ResponseWriter, r *http.Request) error {
+		employeeID := strings.TrimSpace(chi.URLParam(r, "id"))
+		if employeeID == "" {
+			return httpapi.BadRequest("validation_error", "Employee ID wajib diisi", nil)
+		}
+
+		// Prioritize month parameter over startDate/endDate
+		var start, end *time.Time
+		monthStr := strings.TrimSpace(r.URL.Query().Get("month"))
+		if monthStr != "" {
+			// Parse month (YYYY-MM format)
+			if h.loc == nil {
+				h.loc = time.UTC
+			}
+			t, err := time.ParseInLocation("2006-01", monthStr, h.loc)
+			if err != nil {
+				return httpapi.BadRequest("validation_error", "Format bulan tidak valid (gunakan YYYY-MM)", nil)
+			}
+			// Start of month: first day at 00:00:00 in location
+			year, month, _ := t.Date()
+			startOfMonth := time.Date(year, month, 1, 0, 0, 0, 0, h.loc)
+			start = &startOfMonth
+			// End of month: last day at 23:59:59
+			endOfMonth := startOfMonth.AddDate(0, 1, -1).Add(24*time.Hour - time.Nanosecond)
+			end = &endOfMonth
+		} else {
+			// Use startDate/endDate if month not provided
+			var err error
+			start, err = parseDateQuery(r, "startDate", false, h.loc)
+			if err != nil {
+				return err
+			}
+			end, err = parseDateQuery(r, "endDate", true, h.loc)
+			if err != nil {
+				return err
+			}
+		}
+
+		out, err := h.svc.PerformanceDetail(r.Context(), employeeID, start, end)
+		if err != nil {
+			return err
+		}
+		httpapi.WriteOK(w, http.StatusOK, out)
+		return nil
+	})
+}

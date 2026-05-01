@@ -60,6 +60,7 @@ type EmployeeRepository interface {
 	Update(ctx context.Context, id string, p UpdateEmployeeParams) (*model.Employee, error)
 	Delete(ctx context.Context, id string) error
 	Performance(ctx context.Context, start, end *time.Time, onlyEmployeeID *string) ([]model.EmployeePerformanceRow, error)
+	PerformanceDetail(ctx context.Context, employeeID string, start, end *time.Time) ([]model.EmployeePerformanceDetailRow, error)
 }
 
 type EmployeeAuthRow struct {

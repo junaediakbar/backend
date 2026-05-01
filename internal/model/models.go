@@ -195,6 +195,17 @@ type EmployeePerformanceRow struct {
 	TotalAmount  string `json:"totalAmount"`
 }
 
+type EmployeePerformanceDetailRow struct {
+	OrderID       string `json:"orderId"`
+	InvoiceNumber string `json:"invoiceNumber"`
+	CustomerName  string `json:"customerName"`
+	CreatedAt     string `json:"createdAt"`
+	WorkflowStatus string `json:"workflowStatus"`
+	PickupAmount  string `json:"pickupAmount"`
+	WorkAmount    string `json:"workAmount"`
+	TotalAmount   string `json:"totalAmount"`
+}
+
 type Paged[T any] struct {
 	Items          []T    `json:"items"`
 	Page           int    `json:"page"`
