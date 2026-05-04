@@ -274,14 +274,15 @@ func (r *EmployeeRepo) PerformanceDetail(ctx context.Context, employeeID string,
 	defer rows.Close()
 
 	type orderAgg struct {
-		orderID         string
-		invoiceNumber   string
-		customerName    string
-		createdAt       string
-		workflowStatus  string
-		pickupCents     int64
-		workCents       int64
-		totalCents      int64
+		orderID        string
+		invoiceNumber  string
+		customerName   string
+		createdAt      string
+		workflowStatus string
+		pickupCents    int64
+		workCents      int64
+		totalCents     int64
+		tasks          []model.EmployeePerformanceDetailTask
 	}
 
 	byOrder := map[string]*orderAgg{}
@@ -308,6 +309,10 @@ func (r *EmployeeRepo) PerformanceDetail(ctx context.Context, employeeID string,
 		} else {
 			agg.workCents += cents
 		}
+		agg.tasks = append(agg.tasks, model.EmployeePerformanceDetailTask{
+			TaskType: taskType,
+			Amount:   formatCents(cents),
+		})
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -315,18 +320,39 @@ func (r *EmployeeRepo) PerformanceDetail(ctx context.Context, employeeID string,
 
 	out := make([]model.EmployeePerformanceDetailRow, 0, len(byOrder))
 	for _, agg := range byOrder {
+		sort.Slice(agg.tasks, func(i, j int) bool {
+			bi, bj := performanceTaskBand(agg.tasks[i].TaskType), performanceTaskBand(agg.tasks[j].TaskType)
+			if bi != bj {
+				return bi < bj
+			}
+			return agg.tasks[i].TaskType < agg.tasks[j].TaskType
+		})
 		out = append(out, model.EmployeePerformanceDetailRow{
-			OrderID:         agg.orderID,
-			InvoiceNumber:   agg.invoiceNumber,
-			CustomerName:    agg.customerName,
-			CreatedAt:       agg.createdAt,
-			WorkflowStatus:  agg.workflowStatus,
-			PickupAmount:    formatCents(agg.pickupCents),
-			WorkAmount:      formatCents(agg.workCents),
-			TotalAmount:     formatCents(agg.totalCents),
+			OrderID:        agg.orderID,
+			InvoiceNumber:  agg.invoiceNumber,
+			CustomerName:   agg.customerName,
+			CreatedAt:      agg.createdAt,
+			WorkflowStatus: agg.workflowStatus,
+			PickupAmount:   formatCents(agg.pickupCents),
+			WorkAmount:     formatCents(agg.workCents),
+			TotalAmount:    formatCents(agg.totalCents),
+			Tasks:          agg.tasks,
 		})
 	}
+	sort.Slice(out, func(i, j int) bool { return out[i].CreatedAt > out[j].CreatedAt })
 	return out, nil
+}
+
+// performanceTaskBand: jemput (0) → produksi & lainnya (1) → antar (2)
+func performanceTaskBand(taskType string) int {
+	t := strings.TrimSpace(taskType)
+	if strings.HasPrefix(t, "pickup_") {
+		return 0
+	}
+	if strings.HasPrefix(t, "dropoff_") {
+		return 2
+	}
+	return 1
 }
 
 func parseCents(s string) int64 {
