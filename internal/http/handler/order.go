@@ -118,11 +118,12 @@ func (h *OrderHandler) Delete() http.Handler {
 }
 
 type createOrderBody struct {
-	CustomerID    string                `json:"customerId"`
-	ReceivedDate  *string               `json:"receivedDate"`
-	CompletedDate *string               `json:"completedDate"`
-	Note          *string               `json:"note"`
-	Items         []createOrderItemBody `json:"items"`
+	CustomerID     string                `json:"customerId"`
+	ReceivedDate   *string               `json:"receivedDate"`
+	CompletedDate  *string               `json:"completedDate"`
+	PickupDelivery *bool                 `json:"pickupDelivery"`
+	Note           *string               `json:"note"`
+	Items          []createOrderItemBody `json:"items"`
 }
 
 type createOrderItemBody struct {
@@ -155,6 +156,17 @@ func (h *OrderHandler) Create() http.Handler {
 			}
 			if v := strings.TrimSpace(r.FormValue("note")); v != "" {
 				body.Note = &v
+			}
+			pv := strings.TrimSpace(strings.ToLower(r.FormValue("pickupDelivery")))
+			switch {
+			case pv == "true" || pv == "on" || pv == "1" || pv == "yes":
+				t := true
+				body.PickupDelivery = &t
+			case pv == "false" || pv == "0" || pv == "no":
+				f := false
+				body.PickupDelivery = &f
+			default:
+				body.PickupDelivery = nil
 			}
 
 			itemsRaw := strings.TrimSpace(r.FormValue("items"))
@@ -209,11 +221,12 @@ func (h *OrderHandler) Create() http.Handler {
 		}
 
 		out, err := h.svc.Create(r.Context(), service.CreateOrderInput{
-			CustomerID:    body.CustomerID,
-			ReceivedDate:  receivedDate,
-			CompletedDate: completedDate,
-			Note:          trimNotePtr(body.Note),
-			Items:         items,
+			CustomerID:     body.CustomerID,
+			ReceivedDate:   receivedDate,
+			CompletedDate:  completedDate,
+			PickupDelivery: body.PickupDelivery,
+			Note:           trimNotePtr(body.Note),
+			Items:          items,
 		})
 		if err != nil {
 			return err
@@ -273,6 +286,25 @@ func readLimited(r io.Reader, max int64) ([]byte, error) {
 
 type workflowBody struct {
 	WorkflowStatus string `json:"workflowStatus"`
+}
+
+type pickupDeliveryPatchBody struct {
+	PickupDelivery *bool `json:"pickupDelivery"`
+}
+
+func (h *OrderHandler) UpdatePickupDelivery() http.Handler {
+	return httpapi.HandlerFunc(func(w http.ResponseWriter, r *http.Request) error {
+		orderID := chi.URLParam(r, "id")
+		var body pickupDeliveryPatchBody
+		if err := decodeJSON(r, &body); err != nil {
+			return err
+		}
+		if err := h.svc.UpdatePickupDelivery(r.Context(), orderID, body.PickupDelivery); err != nil {
+			return err
+		}
+		httpapi.WriteOK(w, http.StatusOK, map[string]bool{"ok": true})
+		return nil
+	})
 }
 
 func (h *OrderHandler) UpdateWorkflow() http.Handler {

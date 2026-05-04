@@ -70,6 +70,7 @@ func NewRouter(deps ServerDeps) http.Handler {
 				ir.Get("/", deps.Orders.Get().ServeHTTP)
 				ir.Delete("/", deps.Orders.Delete().ServeHTTP)
 				ir.Patch("/workflow", deps.Orders.UpdateWorkflow().ServeHTTP)
+				ir.Patch("/pickup-delivery", deps.Orders.UpdatePickupDelivery().ServeHTTP)
 				ir.Post("/payments", deps.Orders.CreatePayment().ServeHTTP)
 				ir.Delete("/payments/{paymentId}", deps.Orders.DeletePayment().ServeHTTP)
 				ir.Post("/attachments", deps.Orders.CreateAttachments().ServeHTTP)

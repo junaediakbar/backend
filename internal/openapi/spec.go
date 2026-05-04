@@ -104,6 +104,10 @@ func JSON() ([]byte, error) {
 		WorkflowStatus string `json:"workflowStatus"`
 	}
 
+	type pickupDeliveryPatchBody struct {
+		PickupDelivery *bool `json:"pickupDelivery"`
+	}
+
 	type paymentBody struct {
 		Amount float64 `json:"amount"`
 		Method string  `json:"method"`
@@ -476,6 +480,11 @@ func JSON() ([]byte, error) {
 	opOrderWorkflow.Parameters = append(opOrderWorkflow.Parameters, pathParam("id", &openapi3.SchemaRef{Value: &openapi3.Schema{Type: &openapi3.Types{"string"}}}, "Order ID"))
 	addBodyJSON(opOrderWorkflow, workflowBody{})
 	addJSON(opOrderWorkflow, http.StatusOK, okResp{OK: true})
+
+	opOrderPickup := addOp(http.MethodPatch, "/api/v1/orders/{id}/pickup-delivery", "Update pickup/delivery", true)
+	opOrderPickup.Parameters = append(opOrderPickup.Parameters, pathParam("id", &openapi3.SchemaRef{Value: &openapi3.Schema{Type: &openapi3.Types{"string"}}}, "Order ID"))
+	addBodyJSON(opOrderPickup, pickupDeliveryPatchBody{})
+	addJSON(opOrderPickup, http.StatusOK, okResp{OK: true})
 
 	opOrderPayment := addOp(http.MethodPost, "/api/v1/orders/{id}/payments", "Create payment", true)
 	opOrderPayment.Parameters = append(opOrderPayment.Parameters, pathParam("id", &openapi3.SchemaRef{Value: &openapi3.Schema{Type: &openapi3.Types{"string"}}}, "Order ID"))

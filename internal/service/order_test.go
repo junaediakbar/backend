@@ -34,6 +34,12 @@ func (f *fakeOrderRepo) UpdateImage(ctx context.Context, orderID string, image *
 func (f *fakeOrderRepo) UpdateWorkflow(ctx context.Context, orderID string, workflowStatus string) error {
 	return nil
 }
+func (f *fakeOrderRepo) UpdatePickupDelivery(ctx context.Context, orderID string, pickupDelivery *bool) error {
+	return nil
+}
+func (f *fakeOrderRepo) UpdateOrderItemImage(ctx context.Context, orderItemID string, image *string) error {
+	return nil
+}
 func (f *fakeOrderRepo) CreatePayment(ctx context.Context, orderID string, p repository.CreatePaymentParams) (*model.Payment, error) {
 	return nil, nil
 }

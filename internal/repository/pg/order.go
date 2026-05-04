@@ -111,6 +111,7 @@ func (r *OrderRepo) List(ctx context.Context, q string, page, pageSize int, sort
 			o.total::text,
 			o.payment_status::text,
 			o.workflow_status::text,
+			o.pickup_delivery,
 			o.created_at,
 			COALESCE(cnt.item_count, 0) AS item_count,
 			fi.service_type_id,
@@ -144,6 +145,7 @@ func (r *OrderRepo) List(ctx context.Context, q string, page, pageSize int, sort
 		var item model.OrderListItem
 		var stID *string
 		var stName *string
+		var pickupNB sql.NullBool
 		if err := rows.Scan(
 			&item.ID,
 			&item.InvoiceNumber,
@@ -153,12 +155,17 @@ func (r *OrderRepo) List(ctx context.Context, q string, page, pageSize int, sort
 			&item.Total,
 			&item.PaymentStatus,
 			&item.WorkflowStatus,
+			&pickupNB,
 			&item.CreatedAt,
 			&item.ItemCount,
 			&stID,
 			&stName,
 		); err != nil {
 			return model.Paged[model.OrderListItem]{}, err
+		}
+		if pickupNB.Valid {
+			v := pickupNB.Bool
+			item.PickupDelivery = &v
 		}
 		if stID != nil && stName != nil {
 			item.FirstItem = &struct {
@@ -182,6 +189,7 @@ func (r *OrderRepo) List(ctx context.Context, q string, page, pageSize int, sort
 func (r *OrderRepo) GetDetail(ctx context.Context, id string) (*model.OrderDetail, error) {
 	var o model.OrderDetail
 	var imageCol *string
+	var pickupNB sql.NullBool
 	err := r.db.Pool.QueryRow(ctx, `
 		SELECT
 			o.id,
@@ -198,6 +206,7 @@ func (r *OrderRepo) GetDetail(ctx context.Context, id string) (*model.OrderDetai
 			o.pickup_date,
 			o.image,
 			o.note,
+			o.pickup_delivery,
 			o.created_at,
 			o.updated_at
 		FROM laundry_backend.orders o
@@ -218,10 +227,15 @@ func (r *OrderRepo) GetDetail(ctx context.Context, id string) (*model.OrderDetai
 		&o.PickupDate,
 		&imageCol,
 		&o.Note,
+		&pickupNB,
 		&o.CreatedAt,
 		&o.UpdatedAt,
 	)
 	if err == nil {
+		if pickupNB.Valid {
+			v := pickupNB.Bool
+			o.PickupDelivery = &v
+		}
 		first, all := util.NormalizeOrderImageColumn(imageCol)
 		o.Image = first
 		o.Images = all
@@ -460,10 +474,11 @@ func (r *OrderRepo) createOrderTx(ctx context.Context, tx pgx.Tx, orderID, invoi
 			pickup_date,
 			image,
 			note,
+			pickup_delivery,
 			created_at,
 			updated_at
-		) VALUES ($1,$2,$3,$4,$5,'unpaid','received',$6,$7,NULL,$8,$9,now(),now())
-	`, orderID, invoice, cuid.New(), p.CustomerID, sumItemTotals(p.Items), p.ReceivedDate, p.CompletedDate, p.Image, p.Note)
+		) VALUES ($1,$2,$3,$4,$5,'unpaid','received',$6,$7,NULL,$8,$9,$10,now(),now())
+	`, orderID, invoice, cuid.New(), p.CustomerID, sumItemTotals(p.Items), p.ReceivedDate, p.CompletedDate, p.Image, p.Note, p.PickupDelivery)
 	if err != nil {
 		return err
 	}
@@ -526,6 +541,21 @@ func (r *OrderRepo) UpdateOrderItemImage(ctx context.Context, orderItemID string
 		WHERE id=$1
 	`, orderItemID, image)
 	return err
+}
+
+func (r *OrderRepo) UpdatePickupDelivery(ctx context.Context, orderID string, pickupDelivery *bool) error {
+	tag, err := r.db.Pool.Exec(ctx, `
+		UPDATE laundry_backend.orders
+		SET pickup_delivery=$2, updated_at=now()
+		WHERE id=$1
+	`, orderID, pickupDelivery)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
 }
 
 func (r *OrderRepo) UpdateWorkflow(ctx context.Context, orderID string, workflowStatus string) error {

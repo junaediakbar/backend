@@ -62,12 +62,13 @@ type CreateOrderItemInput struct {
 }
 
 type CreateOrderInput struct {
-	CustomerID    string
-	ReceivedDate  time.Time
-	CompletedDate *time.Time
-	Image         *string
-	Note          *string
-	Items         []CreateOrderItemInput
+	CustomerID     string
+	ReceivedDate   time.Time
+	CompletedDate  *time.Time
+	PickupDelivery *bool
+	Image          *string
+	Note           *string
+	Items          []CreateOrderItemInput
 }
 
 func (s *OrderService) Create(ctx context.Context, in CreateOrderInput) (*model.OrderDetail, error) {
@@ -122,12 +123,13 @@ func (s *OrderService) Create(ctx context.Context, in CreateOrderInput) (*model.
 	}
 
 	return s.repo.Create(ctx, repository.CreateOrderParams{
-		CustomerID:    in.CustomerID,
-		ReceivedDate:  in.ReceivedDate,
-		CompletedDate: in.CompletedDate,
-		Image:         in.Image,
-		Note:          in.Note,
-		Items:         items,
+		CustomerID:     in.CustomerID,
+		ReceivedDate:   in.ReceivedDate,
+		CompletedDate:  in.CompletedDate,
+		PickupDelivery: in.PickupDelivery,
+		Image:          in.Image,
+		Note:           in.Note,
+		Items:          items,
 	})
 }
 
@@ -145,6 +147,20 @@ func (s *OrderService) UpdateOrderItemImage(ctx context.Context, orderItemID str
 	if err := s.repo.UpdateOrderItemImage(ctx, orderItemID, image); err != nil {
 		if err == pgx.ErrNoRows {
 			return httpapi.NotFound("Item nota tidak ditemukan")
+		}
+		return err
+	}
+	return nil
+}
+
+func (s *OrderService) UpdatePickupDelivery(ctx context.Context, orderID string, pickupDelivery *bool) error {
+	orderID = strings.TrimSpace(orderID)
+	if orderID == "" {
+		return httpapi.BadRequest("validation_error", "ID nota tidak valid", nil)
+	}
+	if err := s.repo.UpdatePickupDelivery(ctx, orderID, pickupDelivery); err != nil {
+		if err == pgx.ErrNoRows {
+			return httpapi.NotFound("Nota tidak ditemukan")
 		}
 		return err
 	}

@@ -59,7 +59,9 @@ type OrderListItem struct {
 	ItemCount      int       `json:"itemCount"`
 	Total          string    `json:"total"`
 	PaymentStatus  string    `json:"paymentStatus"`
-	WorkflowStatus string    `json:"workflowStatus"`
+	WorkflowStatus string `json:"workflowStatus"`
+	/** nil = belum tahu; pointer ke false/true = tidak / ya */
+	PickupDelivery *bool    `json:"pickupDelivery"`
 	CreatedAt      time.Time `json:"createdAt"`
 }
 
@@ -81,6 +83,7 @@ type OrderDetail struct {
 	Image          *string    `json:"image,omitempty"`
 	Images         []string   `json:"images,omitempty"`
 	Note           *string    `json:"note,omitempty"`
+	PickupDelivery *bool      `json:"pickupDelivery"`
 	CreatedAt      time.Time  `json:"createdAt"`
 	UpdatedAt      time.Time  `json:"updatedAt"`
 

@@ -93,6 +93,7 @@ type OrderRepository interface {
 	UpdateImage(ctx context.Context, orderID string, image *string) error
 	UpdateOrderItemImage(ctx context.Context, orderItemID string, image *string) error
 	UpdateWorkflow(ctx context.Context, orderID string, workflowStatus string) error
+	UpdatePickupDelivery(ctx context.Context, orderID string, pickupDelivery *bool) error
 	CreatePayment(ctx context.Context, orderID string, p CreatePaymentParams) (*model.Payment, error)
 	DeletePayment(ctx context.Context, orderID string, paymentID string) (*model.Payment, error)
 	UpsertWorkAssignment(ctx context.Context, p UpsertWorkAssignmentParams) error
@@ -101,12 +102,13 @@ type OrderRepository interface {
 }
 
 type CreateOrderParams struct {
-	CustomerID    string
-	ReceivedDate  time.Time
-	CompletedDate *time.Time
-	Image         *string
-	Note          *string
-	Items         []CreateOrderItemParams
+	CustomerID     string
+	ReceivedDate   time.Time
+	CompletedDate  *time.Time
+	PickupDelivery *bool
+	Image          *string
+	Note           *string
+	Items          []CreateOrderItemParams
 }
 
 type CreateOrderItemParams struct {
