@@ -128,7 +128,7 @@ func (r *OrderRepo) List(ctx context.Context, q string, page, pageSize int, sort
 			FROM laundry_backend.order_items oi
 			JOIN laundry_backend.service_types st ON st.id = oi.service_type_id
 			WHERE oi.order_id = o.id
-			ORDER BY oi.created_at ASC
+			ORDER BY oi.line_no ASC, oi.id ASC
 			LIMIT 1
 		) fi ON true
 		WHERE %s
@@ -267,7 +267,7 @@ func (r *OrderRepo) GetDetail(ctx context.Context, id string) (*model.OrderDetai
 		FROM laundry_backend.order_items oi
 		JOIN laundry_backend.service_types st ON st.id = oi.service_type_id
 		WHERE oi.order_id=$1
-		ORDER BY oi.created_at ASC
+		ORDER BY oi.line_no ASC, oi.id ASC
 	`, id)
 	if err != nil {
 		return nil, err
@@ -488,8 +488,9 @@ func (r *OrderRepo) createOrderTx(ctx context.Context, tx pgx.Tx, orderID, invoi
 		return err
 	}
 
-	for _, it := range p.Items {
+	for i, it := range p.Items {
 		itemID := cuid.New()
+		lineNo := i + 1
 		_, err := tx.Exec(ctx, `
 			INSERT INTO laundry_backend.order_items (
 				id,
@@ -502,11 +503,12 @@ func (r *OrderRepo) createOrderTx(ctx context.Context, tx pgx.Tx, orderID, invoi
 				carpet_length_m,
 				carpet_width_m,
 				image,
+				line_no,
 				created_at,
 				updated_at
-			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,now(),now())
+			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,clock_timestamp(),clock_timestamp())
 		`, itemID, orderID, it.ServiceTypeID, it.Quantity, it.UnitPrice, it.Discount, it.Total,
-			nullableDecimalFromStringPtr(it.LengthM), nullableDecimalFromStringPtr(it.WidthM), it.Image)
+			nullableDecimalFromStringPtr(it.LengthM), nullableDecimalFromStringPtr(it.WidthM), it.Image, lineNo)
 		if err != nil {
 			return err
 		}
