@@ -194,6 +194,10 @@ func (r *OrderRepo) GetDetail(ctx context.Context, id string) (*model.OrderDetai
 		SELECT
 			o.id,
 			o.invoice_number,
+			(SELECT COUNT(*)::int
+			 FROM laundry_backend.orders o2
+			 WHERE o2.created_at < o.created_at
+			    OR (o2.created_at = o.created_at AND o2.id <= o.id)),
 			o.public_token,
 			c.id,
 			c.name,
@@ -215,6 +219,7 @@ func (r *OrderRepo) GetDetail(ctx context.Context, id string) (*model.OrderDetai
 	`, id).Scan(
 		&o.ID,
 		&o.InvoiceNumber,
+		&o.NotaNumber,
 		&o.PublicToken,
 		&o.Customer.ID,
 		&o.Customer.Name,

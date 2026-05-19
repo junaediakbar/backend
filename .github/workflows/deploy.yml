@@ -1,0 +1,67 @@
+name: Deploy to cPanel
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Build binary
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o laundry-api .
+
+      - name: Upload binary ke server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          source: 'laundry-api,migrations/'
+          target: '~/laundry-backend-deploy/'
+
+      - name: Restart server via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            set -e
+
+            # Stop server lama
+            if [ -f ~/laundry-backend/app.pid ]; then
+              kill $(cat ~/laundry-backend/app.pid) 2>/dev/null || true
+            fi
+
+            # Backup binary lama
+            cp ~/laundry-backend/laundry-api ~/laundry-backend/laundry-api.bak 2>/dev/null || true
+
+            # Deploy binary & migrations baru
+            cp ~/laundry-backend-deploy/laundry-api ~/laundry-backend/laundry-api
+            cp -r ~/laundry-backend-deploy/migrations ~/laundry-backend/
+            chmod +x ~/laundry-backend/laundry-api
+
+            # Start server baru
+            cd ~/laundry-backend
+            source .env
+            nohup ./laundry-api > logs/app.log 2>&1 &
+            echo $! > app.pid
+
+            # Health check
+            sleep 3
+            curl -sf https://laundry-backend.junszx.my.id/health && echo "Deploy sukses!" || echo "Deploy gagal!"

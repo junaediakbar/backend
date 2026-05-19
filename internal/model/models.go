@@ -68,6 +68,8 @@ type OrderListItem struct {
 type OrderDetail struct {
 	ID            string `json:"id"`
 	InvoiceNumber string `json:"invoiceNumber"`
+	/** Nomor urut kronologis (1 = nota tertua), sama dengan kolom No di daftar nota. */
+	NotaNumber    int    `json:"notaNumber"`
 	PublicToken   string `json:"publicToken"`
 	Customer      struct {
 		ID    string  `json:"id"`

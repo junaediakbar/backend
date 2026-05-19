@@ -41,6 +41,7 @@ type publicReceiptItem struct {
 type PublicReceipt struct {
 	PublicToken    string              `json:"publicToken"`
 	InvoiceNumber  string              `json:"invoiceNumber"`
+	NotaNumber     int                 `json:"notaNumber"`
 	CustomerName   string              `json:"customerName"`
 	CustomerPhone  *string             `json:"customerPhone,omitempty"`
 	Total          string              `json:"total"`
@@ -94,6 +95,7 @@ func (h *PublicReceiptHandler) Get() http.Handler {
 		resp := PublicReceipt{
 			PublicToken:    out.PublicToken,
 			InvoiceNumber:  out.InvoiceNumber,
+			NotaNumber:     out.NotaNumber,
 			CustomerName:   out.Customer.Name,
 			CustomerPhone:  out.Customer.Phone,
 			Total:          out.Total,

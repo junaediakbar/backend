@@ -157,6 +157,7 @@ func JSON() ([]byte, error) {
 	type publicReceipt struct {
 		PublicToken    string             `json:"publicToken"`
 		InvoiceNumber  string             `json:"invoiceNumber"`
+		NotaNumber     int                `json:"notaNumber"`
 		CustomerName   string             `json:"customerName"`
 		CustomerPhone  *string            `json:"customerPhone,omitempty"`
 		Total          string             `json:"total"`
