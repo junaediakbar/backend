@@ -16,10 +16,12 @@ type Customer struct {
 }
 
 type CustomerOrderSummary struct {
-	ID             string `json:"id"`
-	InvoiceNumber  string `json:"invoiceNumber"`
-	Total          string `json:"total"`
-	WorkflowStatus string `json:"workflowStatus"`
+	ID                      string  `json:"id"`
+	InvoiceNumber           string  `json:"invoiceNumber"`
+	Total                   string  `json:"total"`
+	WorkflowStatus          string  `json:"workflowStatus"`
+	DeliveryServiceCategory *string `json:"deliveryServiceCategory,omitempty"`
+	DeliveryEstimateDays    *int    `json:"deliveryEstimateDays,omitempty"`
 }
 
 type ServiceType struct {
@@ -62,6 +64,10 @@ type OrderListItem struct {
 	WorkflowStatus string `json:"workflowStatus"`
 	/** nil = belum tahu; pointer ke false/true = tidak / ya */
 	PickupDelivery *bool    `json:"pickupDelivery"`
+	/** Kode kategori layanan pengiriman (express_1, cepat, reguler, dll). */
+	DeliveryServiceCategory *string `json:"deliveryServiceCategory,omitempty"`
+	/** Estimasi waktu pengiriman dalam hari kerja. */
+	DeliveryEstimateDays *int `json:"deliveryEstimateDays,omitempty"`
 	CreatedAt      time.Time `json:"createdAt"`
 }
 
@@ -86,6 +92,10 @@ type OrderDetail struct {
 	Images         []string   `json:"images,omitempty"`
 	Note           *string    `json:"note,omitempty"`
 	PickupDelivery *bool      `json:"pickupDelivery"`
+	/** Kode kategori layanan pengiriman (express_1, cepat, reguler, dll). */
+	DeliveryServiceCategory *string `json:"deliveryServiceCategory,omitempty"`
+	/** Estimasi waktu pengiriman dalam hari kerja. */
+	DeliveryEstimateDays *int `json:"deliveryEstimateDays,omitempty"`
 	CreatedAt      time.Time  `json:"createdAt"`
 	UpdatedAt      time.Time  `json:"updatedAt"`
 

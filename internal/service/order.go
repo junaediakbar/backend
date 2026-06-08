@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"laundry-backend/internal/deliveryservice"
 	"laundry-backend/internal/httpapi"
 	"laundry-backend/internal/model"
 	"laundry-backend/internal/repository"
@@ -62,13 +63,14 @@ type CreateOrderItemInput struct {
 }
 
 type CreateOrderInput struct {
-	CustomerID     string
-	ReceivedDate   time.Time
-	CompletedDate  *time.Time
-	PickupDelivery *bool
-	Image          *string
-	Note           *string
-	Items          []CreateOrderItemInput
+	CustomerID              string
+	ReceivedDate            time.Time
+	CompletedDate           *time.Time
+	PickupDelivery          *bool
+	DeliveryServiceCategory string
+	Image                   *string
+	Note                    *string
+	Items                   []CreateOrderItemInput
 }
 
 func (s *OrderService) Create(ctx context.Context, in CreateOrderInput) (*model.OrderDetail, error) {
@@ -78,6 +80,19 @@ func (s *OrderService) Create(ctx context.Context, in CreateOrderInput) (*model.
 	}
 	if len(in.Items) == 0 {
 		return nil, httpapi.BadRequest("validation_error", "Minimal 1 item pesanan", nil)
+	}
+
+	deliveryCategory, ok := deliveryservice.NormalizeCategory(in.DeliveryServiceCategory)
+	if !ok {
+		return nil, httpapi.BadRequest("validation_error", "Kategori layanan percepatan wajib dipilih", nil)
+	}
+	deliveryEstimateDays, ok := deliveryservice.EstimateDaysFor(deliveryCategory)
+	if !ok {
+		return nil, httpapi.BadRequest("validation_error", "Estimasi waktu percepatan tidak valid", nil)
+	}
+	deliverySurchargePercent, ok := deliveryservice.SurchargePercentFor(deliveryCategory)
+	if !ok {
+		return nil, httpapi.BadRequest("validation_error", "Persentase markup layanan tidak valid", nil)
 	}
 
 	items := make([]repository.CreateOrderItemParams, 0, len(in.Items))
@@ -123,13 +138,16 @@ func (s *OrderService) Create(ctx context.Context, in CreateOrderInput) (*model.
 	}
 
 	return s.repo.Create(ctx, repository.CreateOrderParams{
-		CustomerID:     in.CustomerID,
-		ReceivedDate:   in.ReceivedDate,
-		CompletedDate:  in.CompletedDate,
-		PickupDelivery: in.PickupDelivery,
-		Image:          in.Image,
-		Note:           in.Note,
-		Items:          items,
+		CustomerID:              in.CustomerID,
+		ReceivedDate:            in.ReceivedDate,
+		CompletedDate:           in.CompletedDate,
+		PickupDelivery:          in.PickupDelivery,
+		DeliveryServiceCategory:  deliveryCategory,
+		DeliveryEstimateDays:     deliveryEstimateDays,
+		DeliverySurchargePercent: deliverySurchargePercent,
+		Image:                    in.Image,
+		Note:                    in.Note,
+		Items:                   items,
 	})
 }
 

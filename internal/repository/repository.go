@@ -102,13 +102,16 @@ type OrderRepository interface {
 }
 
 type CreateOrderParams struct {
-	CustomerID     string
-	ReceivedDate   time.Time
-	CompletedDate  *time.Time
-	PickupDelivery *bool
-	Image          *string
-	Note           *string
-	Items          []CreateOrderItemParams
+	CustomerID              string
+	ReceivedDate            time.Time
+	CompletedDate           *time.Time
+	PickupDelivery          *bool
+	DeliveryServiceCategory  string
+	DeliveryEstimateDays     int
+	DeliverySurchargePercent int
+	Image                    *string
+	Note                    *string
+	Items                   []CreateOrderItemParams
 }
 
 type CreateOrderItemParams struct {

@@ -118,12 +118,13 @@ func (h *OrderHandler) Delete() http.Handler {
 }
 
 type createOrderBody struct {
-	CustomerID     string                `json:"customerId"`
-	ReceivedDate   *string               `json:"receivedDate"`
-	CompletedDate  *string               `json:"completedDate"`
-	PickupDelivery *bool                 `json:"pickupDelivery"`
-	Note           *string               `json:"note"`
-	Items          []createOrderItemBody `json:"items"`
+	CustomerID              string                `json:"customerId"`
+	ReceivedDate            *string               `json:"receivedDate"`
+	CompletedDate           *string               `json:"completedDate"`
+	PickupDelivery          *bool                 `json:"pickupDelivery"`
+	DeliveryServiceCategory string                `json:"deliveryServiceCategory"`
+	Note                    *string               `json:"note"`
+	Items                   []createOrderItemBody `json:"items"`
 }
 
 type createOrderItemBody struct {
@@ -168,6 +169,7 @@ func (h *OrderHandler) Create() http.Handler {
 			default:
 				body.PickupDelivery = nil
 			}
+			body.DeliveryServiceCategory = strings.TrimSpace(r.FormValue("deliveryServiceCategory"))
 
 			itemsRaw := strings.TrimSpace(r.FormValue("items"))
 			if itemsRaw != "" {
@@ -221,12 +223,13 @@ func (h *OrderHandler) Create() http.Handler {
 		}
 
 		out, err := h.svc.Create(r.Context(), service.CreateOrderInput{
-			CustomerID:     body.CustomerID,
-			ReceivedDate:   receivedDate,
-			CompletedDate:  completedDate,
-			PickupDelivery: body.PickupDelivery,
-			Note:           trimNotePtr(body.Note),
-			Items:          items,
+			CustomerID:              body.CustomerID,
+			ReceivedDate:            receivedDate,
+			CompletedDate:           completedDate,
+			PickupDelivery:          body.PickupDelivery,
+			DeliveryServiceCategory: body.DeliveryServiceCategory,
+			Note:                    trimNotePtr(body.Note),
+			Items:                   items,
 		})
 		if err != nil {
 			return err

@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/lucsky/cuid"
 
+	"laundry-backend/internal/deliveryservice"
 	"laundry-backend/internal/model"
 	"laundry-backend/internal/repository"
 	"laundry-backend/internal/util"
@@ -112,6 +113,8 @@ func (r *OrderRepo) List(ctx context.Context, q string, page, pageSize int, sort
 			o.payment_status::text,
 			o.workflow_status::text,
 			o.pickup_delivery,
+			o.delivery_service_category,
+			o.delivery_estimate_days,
 			o.created_at,
 			COALESCE(cnt.item_count, 0) AS item_count,
 			fi.service_type_id,
@@ -146,6 +149,8 @@ func (r *OrderRepo) List(ctx context.Context, q string, page, pageSize int, sort
 		var stID *string
 		var stName *string
 		var pickupNB sql.NullBool
+		var deliveryCat sql.NullString
+		var deliveryDays sql.NullInt32
 		if err := rows.Scan(
 			&item.ID,
 			&item.InvoiceNumber,
@@ -156,6 +161,8 @@ func (r *OrderRepo) List(ctx context.Context, q string, page, pageSize int, sort
 			&item.PaymentStatus,
 			&item.WorkflowStatus,
 			&pickupNB,
+			&deliveryCat,
+			&deliveryDays,
 			&item.CreatedAt,
 			&item.ItemCount,
 			&stID,
@@ -166,6 +173,14 @@ func (r *OrderRepo) List(ctx context.Context, q string, page, pageSize int, sort
 		if pickupNB.Valid {
 			v := pickupNB.Bool
 			item.PickupDelivery = &v
+		}
+		if deliveryCat.Valid {
+			v := deliveryCat.String
+			item.DeliveryServiceCategory = &v
+		}
+		if deliveryDays.Valid {
+			v := int(deliveryDays.Int32)
+			item.DeliveryEstimateDays = &v
 		}
 		if stID != nil && stName != nil {
 			item.FirstItem = &struct {
@@ -211,6 +226,8 @@ func (r *OrderRepo) GetDetail(ctx context.Context, id string) (*model.OrderDetai
 			o.image,
 			o.note,
 			o.pickup_delivery,
+			o.delivery_service_category,
+			o.delivery_estimate_days,
 			o.created_at,
 			o.updated_at
 		FROM laundry_backend.orders o
@@ -233,6 +250,8 @@ func (r *OrderRepo) GetDetail(ctx context.Context, id string) (*model.OrderDetai
 		&imageCol,
 		&o.Note,
 		&pickupNB,
+		&o.DeliveryServiceCategory,
+		&o.DeliveryEstimateDays,
 		&o.CreatedAt,
 		&o.UpdatedAt,
 	)
@@ -480,10 +499,12 @@ func (r *OrderRepo) createOrderTx(ctx context.Context, tx pgx.Tx, orderID, invoi
 			image,
 			note,
 			pickup_delivery,
+			delivery_service_category,
+			delivery_estimate_days,
 			created_at,
 			updated_at
-		) VALUES ($1,$2,$3,$4,$5,'unpaid','received',$6,$7,NULL,$8,$9,$10,now(),now())
-	`, orderID, invoice, cuid.New(), p.CustomerID, sumItemTotals(p.Items), p.ReceivedDate, p.CompletedDate, p.Image, p.Note, p.PickupDelivery)
+		) VALUES ($1,$2,$3,$4,$5,'unpaid','received',$6,$7,NULL,$8,$9,$10,$11,$12,now(),now())
+	`, orderID, invoice, cuid.New(), p.CustomerID, orderTotalWithSurcharge(p.Items, p.DeliverySurchargePercent), p.ReceivedDate, p.CompletedDate, p.Image, p.Note, p.PickupDelivery, p.DeliveryServiceCategory, p.DeliveryEstimateDays)
 	if err != nil {
 		return err
 	}
@@ -766,6 +787,11 @@ func sumItemTotals(items []repository.CreateOrderItemParams) string {
 		cents += parseMoneyCents(it.Total)
 	}
 	return formatMoneyCents(cents)
+}
+
+func orderTotalWithSurcharge(items []repository.CreateOrderItemParams, surchargePercent int) string {
+	subtotal := sumItemTotals(items)
+	return deliveryservice.ApplySurcharge(subtotal, surchargePercent)
 }
 
 func parseMoneyCents(s string) int64 {

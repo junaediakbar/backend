@@ -53,8 +53,10 @@ type PublicReceipt struct {
 	PickupDate     *time.Time          `json:"pickupDate,omitempty"`
 	Image          *string             `json:"image,omitempty"`
 	Images         []string            `json:"images,omitempty"`
-	Note           *string             `json:"note,omitempty"`
-	Items          []publicReceiptItem `json:"items"`
+	Note                    *string             `json:"note,omitempty"`
+	DeliveryServiceCategory *string             `json:"deliveryServiceCategory,omitempty"`
+	DeliveryEstimateDays    *int                `json:"deliveryEstimateDays,omitempty"`
+	Items                   []publicReceiptItem `json:"items"`
 }
 
 func (h *PublicReceiptHandler) Get() http.Handler {
@@ -107,8 +109,10 @@ func (h *PublicReceiptHandler) Get() http.Handler {
 			PickupDate:     keepWallClockPtr(out.PickupDate, h.loc),
 			Image:          out.Image,
 			Images:         out.Images,
-			Note:           out.Note,
-			Items:          items,
+			Note:                    out.Note,
+			DeliveryServiceCategory: out.DeliveryServiceCategory,
+			DeliveryEstimateDays:    out.DeliveryEstimateDays,
+			Items:                   items,
 		}
 
 		httpapi.WriteOK(w, http.StatusOK, resp)

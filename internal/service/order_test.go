@@ -65,8 +65,9 @@ func TestOrderServiceCreate_ComputesTotals(t *testing.T) {
 
 	now := time.Date(2026, 3, 22, 0, 0, 0, 0, time.UTC)
 	_, err := svc.Create(context.Background(), CreateOrderInput{
-		CustomerID:   "cust1",
-		ReceivedDate: now,
+		CustomerID:              "cust1",
+		ReceivedDate:            now,
+		DeliveryServiceCategory: "reguler",
 		Items: []CreateOrderItemInput{
 			{ServiceTypeID: "svc1", Quantity: 2, UnitPrice: 10000, Discount: 1000},
 			{ServiceTypeID: "svc2", Quantity: 1.5, UnitPrice: 2000.5, Discount: 0},
@@ -76,6 +77,9 @@ func TestOrderServiceCreate_ComputesTotals(t *testing.T) {
 
 	require.Equal(t, "cust1", repo.createIn.CustomerID)
 	require.Equal(t, now, repo.createIn.ReceivedDate)
+	require.Equal(t, "reguler", repo.createIn.DeliveryServiceCategory)
+	require.Equal(t, 7, repo.createIn.DeliveryEstimateDays)
+	require.Equal(t, 0, repo.createIn.DeliverySurchargePercent)
 	require.Len(t, repo.createIn.Items, 2)
 
 	require.Equal(t, "2.00", repo.createIn.Items[0].Quantity)
@@ -87,4 +91,20 @@ func TestOrderServiceCreate_ComputesTotals(t *testing.T) {
 	require.Equal(t, "2000.50", repo.createIn.Items[1].UnitPrice)
 	require.Equal(t, "0.00", repo.createIn.Items[1].Discount)
 	require.Equal(t, "3000.75", repo.createIn.Items[1].Total)
+}
+
+func TestOrderServiceCreate_RejectsInvalidDeliveryCategory(t *testing.T) {
+	repo := &fakeOrderRepo{}
+	svc := NewOrderService(repo)
+
+	now := time.Date(2026, 3, 22, 0, 0, 0, 0, time.UTC)
+	_, err := svc.Create(context.Background(), CreateOrderInput{
+		CustomerID:              "cust1",
+		ReceivedDate:            now,
+		DeliveryServiceCategory: "super-fast",
+		Items: []CreateOrderItemInput{
+			{ServiceTypeID: "svc1", Quantity: 1, UnitPrice: 10000, Discount: 0},
+		},
+	})
+	require.Error(t, err)
 }

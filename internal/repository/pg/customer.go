@@ -147,7 +147,13 @@ func (r *CustomerRepo) RecentOrders(ctx context.Context, customerID string, limi
 	}
 
 	rows, err := r.db.Pool.Query(ctx, `
-		SELECT id, invoice_number, total::text, workflow_status::text
+		SELECT
+			id,
+			invoice_number,
+			total::text,
+			workflow_status::text,
+			delivery_service_category,
+			delivery_estimate_days
 		FROM laundry_backend.orders
 		WHERE customer_id=$1
 		ORDER BY created_at DESC
@@ -161,7 +167,14 @@ func (r *CustomerRepo) RecentOrders(ctx context.Context, customerID string, limi
 	out := []model.CustomerOrderSummary{}
 	for rows.Next() {
 		var o model.CustomerOrderSummary
-		if err := rows.Scan(&o.ID, &o.InvoiceNumber, &o.Total, &o.WorkflowStatus); err != nil {
+		if err := rows.Scan(
+			&o.ID,
+			&o.InvoiceNumber,
+			&o.Total,
+			&o.WorkflowStatus,
+			&o.DeliveryServiceCategory,
+			&o.DeliveryEstimateDays,
+		); err != nil {
 			return nil, err
 		}
 		out = append(out, o)
