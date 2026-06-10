@@ -115,6 +115,8 @@ func (r *OrderRepo) List(ctx context.Context, q string, page, pageSize int, sort
 			o.pickup_delivery,
 			o.delivery_service_category,
 			o.delivery_estimate_days,
+			o.received_date,
+			o.completed_date,
 			o.created_at,
 			COALESCE(cnt.item_count, 0) AS item_count,
 			fi.service_type_id,
@@ -151,6 +153,7 @@ func (r *OrderRepo) List(ctx context.Context, q string, page, pageSize int, sort
 		var pickupNB sql.NullBool
 		var deliveryCat sql.NullString
 		var deliveryDays sql.NullInt32
+		var completedNT sql.NullTime
 		if err := rows.Scan(
 			&item.ID,
 			&item.InvoiceNumber,
@@ -163,6 +166,8 @@ func (r *OrderRepo) List(ctx context.Context, q string, page, pageSize int, sort
 			&pickupNB,
 			&deliveryCat,
 			&deliveryDays,
+			&item.ReceivedDate,
+			&completedNT,
 			&item.CreatedAt,
 			&item.ItemCount,
 			&stID,
@@ -181,6 +186,10 @@ func (r *OrderRepo) List(ctx context.Context, q string, page, pageSize int, sort
 		if deliveryDays.Valid {
 			v := int(deliveryDays.Int32)
 			item.DeliveryEstimateDays = &v
+		}
+		if completedNT.Valid {
+			v := completedNT.Time
+			item.CompletedDate = &v
 		}
 		if stID != nil && stName != nil {
 			item.FirstItem = &struct {

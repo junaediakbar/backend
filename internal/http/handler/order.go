@@ -88,6 +88,10 @@ func (h *OrderHandler) List() http.Handler {
 		if err != nil {
 			return err
 		}
+		for i := range out.Items {
+			out.Items[i].ReceivedDate = keepWallClock(out.Items[i].ReceivedDate, h.loc)
+			out.Items[i].CompletedDate = keepWallClockPtr(out.Items[i].CompletedDate, h.loc)
+		}
 		httpapi.WriteOK(w, http.StatusOK, out)
 		return nil
 	})

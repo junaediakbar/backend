@@ -62,12 +62,13 @@ type OrderListItem struct {
 	Total          string    `json:"total"`
 	PaymentStatus  string    `json:"paymentStatus"`
 	WorkflowStatus string `json:"workflowStatus"`
-	/** nil = belum tahu; pointer ke false/true = tidak / ya */
-	PickupDelivery *bool    `json:"pickupDelivery"`
+	PickupDelivery *bool      `json:"pickupDelivery"`
 	/** Kode kategori layanan pengiriman (express_1, cepat, reguler, dll). */
 	DeliveryServiceCategory *string `json:"deliveryServiceCategory,omitempty"`
 	/** Estimasi waktu pengiriman dalam hari kerja. */
 	DeliveryEstimateDays *int `json:"deliveryEstimateDays,omitempty"`
+	ReceivedDate   time.Time  `json:"receivedDate"`
+	CompletedDate  *time.Time `json:"completedDate,omitempty"`
 	CreatedAt      time.Time `json:"createdAt"`
 }
 
