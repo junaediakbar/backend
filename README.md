@@ -2,6 +2,8 @@
 
 Backend API untuk aplikasi Laundry (Go + PostgreSQL).
 
+update baru
+
 ## Prasyarat
 
 - Go 1.22+
