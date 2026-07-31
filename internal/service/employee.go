@@ -2,10 +2,12 @@ package service
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"golang.org/x/crypto/bcrypt"
 
 	"laundry-backend/internal/httpapi"
@@ -131,6 +133,10 @@ func (s *EmployeeService) Delete(ctx context.Context, id string) error {
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return httpapi.NotFound("Anggota tim tidak ditemukan")
+		}
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23503" {
+			return httpapi.Conflict("Karyawan ini masih memiliki riwayat pekerjaan (penugasan), tidak bisa dihapus. Nonaktifkan saja.")
 		}
 		return err
 	}
