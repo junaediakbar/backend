@@ -433,6 +433,7 @@ func JSON() ([]byte, error) {
 	opEmployeesPerf.Parameters = append(opEmployeesPerf.Parameters,
 		queryParam("startDate", &openapi3.SchemaRef{Value: &openapi3.Schema{Type: &openapi3.Types{"string"}, Format: "date"}}, "YYYY-MM-DD"),
 		queryParam("endDate", &openapi3.SchemaRef{Value: &openapi3.Schema{Type: &openapi3.Types{"string"}, Format: "date"}}, "YYYY-MM-DD"),
+		queryParam("dateBasis", &openapi3.SchemaRef{Value: &openapi3.Schema{Type: &openapi3.Types{"string"}, Enum: []interface{}{"order", "work"}}}, "Filter by order nota date (default) or by the date the employee recorded the work"),
 	)
 	addJSON(opEmployeesPerf, http.StatusOK, []model.EmployeePerformanceRow{})
 

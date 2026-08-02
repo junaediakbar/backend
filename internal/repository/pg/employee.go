@@ -159,16 +159,27 @@ func (r *EmployeeRepo) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
-func (r *EmployeeRepo) Performance(ctx context.Context, start, end *time.Time, onlyEmployeeID *string) ([]model.EmployeePerformanceRow, error) {
+// performanceDateColumn picks the column used to filter performance rows by date.
+// "work" filters by when the employee recorded the task (wa.created_at); anything
+// else (including the default "order") filters by the order's nota date (o.created_at).
+func performanceDateColumn(dateBasis string) string {
+	if dateBasis == "work" {
+		return "wa.created_at"
+	}
+	return "o.created_at"
+}
+
+func (r *EmployeeRepo) Performance(ctx context.Context, start, end *time.Time, onlyEmployeeID *string, dateBasis string) ([]model.EmployeePerformanceRow, error) {
+	dateCol := performanceDateColumn(dateBasis)
 	args := []any{}
 	conds := []string{"true"}
 	if start != nil {
 		args = append(args, timestampAsUTCWall(*start))
-		conds = append(conds, fmt.Sprintf("o.created_at >= $%d", len(args)))
+		conds = append(conds, fmt.Sprintf("%s >= $%d", dateCol, len(args)))
 	}
 	if end != nil {
 		args = append(args, timestampAsUTCWall(*end))
-		conds = append(conds, fmt.Sprintf("o.created_at <= $%d", len(args)))
+		conds = append(conds, fmt.Sprintf("%s <= $%d", dateCol, len(args)))
 	}
 	if onlyEmployeeID != nil && strings.TrimSpace(*onlyEmployeeID) != "" {
 		args = append(args, strings.TrimSpace(*onlyEmployeeID))
@@ -237,17 +248,18 @@ func (r *EmployeeRepo) Performance(ctx context.Context, start, end *time.Time, o
 	return out, nil
 }
 
-func (r *EmployeeRepo) PerformanceDetail(ctx context.Context, employeeID string, start, end *time.Time) ([]model.EmployeePerformanceDetailRow, error) {
+func (r *EmployeeRepo) PerformanceDetail(ctx context.Context, employeeID string, start, end *time.Time, dateBasis string) ([]model.EmployeePerformanceDetailRow, error) {
+	dateCol := performanceDateColumn(dateBasis)
 	args := []any{employeeID}
 	conds := []string{"e.id = $1"}
 
 	if start != nil {
 		args = append(args, timestampAsUTCWall(*start))
-		conds = append(conds, fmt.Sprintf("o.created_at >= $%d", len(args)))
+		conds = append(conds, fmt.Sprintf("%s >= $%d", dateCol, len(args)))
 	}
 	if end != nil {
 		args = append(args, timestampAsUTCWall(*end))
-		conds = append(conds, fmt.Sprintf("o.created_at <= $%d", len(args)))
+		conds = append(conds, fmt.Sprintf("%s <= $%d", dateCol, len(args)))
 	}
 	where := strings.Join(conds, " AND ")
 

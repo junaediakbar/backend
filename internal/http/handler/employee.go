@@ -139,6 +139,21 @@ func (h *EmployeeHandler) Delete() http.Handler {
 	})
 }
 
+// parsePerformanceDateBasis reads the optional dateBasis query param, which lets the
+// caller pick whether performance rows are filtered by the order's nota date ("order",
+// the default) or by the date the employee recorded the work ("work").
+func parsePerformanceDateBasis(r *http.Request) (string, error) {
+	v := strings.TrimSpace(r.URL.Query().Get("dateBasis"))
+	switch v {
+	case "", "order":
+		return "order", nil
+	case "work":
+		return "work", nil
+	default:
+		return "", httpapi.BadRequest("validation_error", "dateBasis harus 'order' atau 'work'", nil)
+	}
+}
+
 func (h *EmployeeHandler) Performance() http.Handler {
 	return httpapi.HandlerFunc(func(w http.ResponseWriter, r *http.Request) error {
 		c, ok := middleware.GetClaims(r.Context())
@@ -169,7 +184,11 @@ func (h *EmployeeHandler) Performance() http.Handler {
 				filter = &q
 			}
 		}
-		out, err := h.svc.Performance(r.Context(), start, end, filter)
+		dateBasis, err := parsePerformanceDateBasis(r)
+		if err != nil {
+			return err
+		}
+		out, err := h.svc.Performance(r.Context(), start, end, filter, dateBasis)
 		if err != nil {
 			return err
 		}
@@ -217,7 +236,11 @@ func (h *EmployeeHandler) PerformanceDetail() http.Handler {
 			}
 		}
 
-		out, err := h.svc.PerformanceDetail(r.Context(), employeeID, start, end)
+		dateBasis, err := parsePerformanceDateBasis(r)
+		if err != nil {
+			return err
+		}
+		out, err := h.svc.PerformanceDetail(r.Context(), employeeID, start, end, dateBasis)
 		if err != nil {
 			return err
 		}

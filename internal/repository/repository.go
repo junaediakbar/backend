@@ -59,8 +59,8 @@ type EmployeeRepository interface {
 	Create(ctx context.Context, p CreateEmployeeParams) (*model.Employee, error)
 	Update(ctx context.Context, id string, p UpdateEmployeeParams) (*model.Employee, error)
 	Delete(ctx context.Context, id string) error
-	Performance(ctx context.Context, start, end *time.Time, onlyEmployeeID *string) ([]model.EmployeePerformanceRow, error)
-	PerformanceDetail(ctx context.Context, employeeID string, start, end *time.Time) ([]model.EmployeePerformanceDetailRow, error)
+	Performance(ctx context.Context, start, end *time.Time, onlyEmployeeID *string, dateBasis string) ([]model.EmployeePerformanceRow, error)
+	PerformanceDetail(ctx context.Context, employeeID string, start, end *time.Time, dateBasis string) ([]model.EmployeePerformanceDetailRow, error)
 }
 
 type EmployeeAuthRow struct {
